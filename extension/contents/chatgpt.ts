@@ -39,8 +39,13 @@ function handleConversation(data: any) {
   if (!data || !data.mapping) return
   try {
     const messages = linearize(data.mapping)
+    const byRole = messages.reduce<Record<string, number>>((a, m) => {
+      a[m.role] = (a[m.role] || 0) + 1
+      return a
+    }, {})
     console.log(
-      `[PAM/chatgpt] extracted ${messages.length} messages from ${Object.keys(data.mapping).length} nodes`
+      `[PAM/chatgpt] extracted ${messages.length} from ${Object.keys(data.mapping).length} nodes`,
+      byRole
     )
     if (messages.length === 0) return
 
