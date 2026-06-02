@@ -7,6 +7,7 @@ import type { ReactNode } from "react"
 export default function Nav() {
   const pathname = usePathname() || "/"
   const onHistory = pathname === "/history" || pathname.startsWith("/c/")
+  const onSaved = pathname === "/saved"
 
   return (
     <header className="sticky top-0 z-20 border-b border-neutral-800 bg-neutral-950/80 backdrop-blur">
@@ -23,6 +24,9 @@ export default function Nav() {
           <Soon label="Чат" />
           <Tab href="/history" active={onHistory}>
             История
+          </Tab>
+          <Tab href="/saved" active={onSaved}>
+            Избранное
           </Tab>
           <Soon label="Лектор" />
         </nav>

@@ -74,3 +74,52 @@ export async function search(
   if (!r.ok) throw new Error(`search failed: ${r.status}`)
   return r.json()
 }
+
+// ---- Saved ("Избранное") messages ----
+
+export interface SavedMessage {
+  id: string
+  conversation_id: string | null
+  source: string
+  title: string | null
+  role: string
+  content: string
+  position: number | null
+  note: string | null
+  created_at: string
+}
+
+export interface SaveMessageInput {
+  conversation_id?: string | null
+  source: string
+  title?: string | null
+  role: string
+  content: string
+  position?: number | null
+  note?: string | null
+}
+
+export async function saveMessage(
+  input: SaveMessageInput
+): Promise<SavedMessage> {
+  const r = await fetch(`${BACKEND_URL}/saved`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input)
+  })
+  if (!r.ok) throw new Error(`save failed: ${r.status}`)
+  return r.json()
+}
+
+export async function listSaved(source?: string): Promise<SavedMessage[]> {
+  const params = new URLSearchParams()
+  if (source) params.set("source", source)
+  const r = await fetch(`${BACKEND_URL}/saved?${params}`, { cache: "no-store" })
+  if (!r.ok) throw new Error(`list saved failed: ${r.status}`)
+  return r.json()
+}
+
+export async function deleteSaved(id: string): Promise<void> {
+  const r = await fetch(`${BACKEND_URL}/saved/${id}`, { method: "DELETE" })
+  if (!r.ok && r.status !== 204) throw new Error(`delete saved failed: ${r.status}`)
+}

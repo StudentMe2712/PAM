@@ -7,7 +7,9 @@ import remarkGfm from "remark-gfm"
 
 import {
   getConversation,
-  type ConversationDetail
+  saveMessage,
+  type ConversationDetail,
+  type MessageOut
 } from "../../../lib/api"
 
 export default function ConversationPage({
@@ -18,12 +20,34 @@ export default function ConversationPage({
   const { id } = use(params)
   const [conv, setConv] = useState<ConversationDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
+  const [savingId, setSavingId] = useState<string | null>(null)
 
   useEffect(() => {
     getConversation(id)
       .then(setConv)
       .catch((e) => setError(String(e)))
   }, [id])
+
+  async function handleSave(m: MessageOut) {
+    if (!conv || savedIds.has(m.id) || savingId) return
+    setSavingId(m.id)
+    try {
+      await saveMessage({
+        conversation_id: conv.id,
+        source: conv.source,
+        title: conv.title,
+        role: m.role,
+        content: m.content,
+        position: m.position
+      })
+      setSavedIds((prev) => new Set(prev).add(m.id))
+    } catch (e) {
+      setError(String(e))
+    } finally {
+      setSavingId(null)
+    }
+  }
 
   if (error) {
     return (
@@ -72,15 +96,32 @@ export default function ConversationPage({
             style={{
               borderColor: m.role === "user" ? "#5ee9d0" : "#a3e635"
             }}>
-            <div className="flex justify-between items-baseline mb-2">
+            <div className="flex justify-between items-baseline mb-2 gap-3">
               <div className="text-[10px] uppercase tracking-widest text-neutral-500">
                 {m.role}
               </div>
-              {m.sent_at && (
-                <div className="text-[10px] text-neutral-600">
-                  {new Date(m.sent_at).toLocaleString()}
-                </div>
-              )}
+              <div className="flex items-center gap-3 shrink-0">
+                {m.sent_at && (
+                  <div className="text-[10px] text-neutral-600">
+                    {new Date(m.sent_at).toLocaleString()}
+                  </div>
+                )}
+                <button
+                  onClick={() => handleSave(m)}
+                  disabled={savedIds.has(m.id) || savingId === m.id}
+                  title="Сохранить в избранное"
+                  className={`text-[10px] uppercase tracking-wider px-2 py-0.5 border rounded transition-colors ${
+                    savedIds.has(m.id)
+                      ? "border-lime-400/40 text-lime-400"
+                      : "border-neutral-700 text-neutral-400 hover:text-lime-400 hover:border-lime-400/40"
+                  }`}>
+                  {savedIds.has(m.id)
+                    ? "★ сохранено"
+                    : savingId === m.id
+                      ? "…"
+                      : "☆ в избранное"}
+                </button>
+              </div>
             </div>
             <div className="prose prose-invert prose-sm max-w-none font-sans">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
