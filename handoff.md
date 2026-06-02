@@ -130,6 +130,14 @@
 - **Запланированы фичи раздела «Импорт»** (ROADMAP): pin важных сообщений, mindmap тем «что чаще спрашиваешь» (v1 частотность / v2 эмбеддинги Phase 2), аналитика. Заметка про ChatGPT: захват по JSON из fetch, не по скроллу — порядок «старое вверху» на полноту не влияет.
 - Всё на ветке `import-history-section`.
 
+### 2026-06-02 — Сессия: ★ Избранное (ветка saved-messages)
+- **Полнота перехвата закрыта:** пользователь дал `extracted 48 from 81 {user:24, assistant:24}` → 24+24 полная переписка, потерь нет (33 узла служебные). CSP `ws://localhost:1815` = Plasmo HMR (dev-only), безвреден.
+- **Выбор пользователя:** сначала ручное ★ Избранное, потом RAG (auto-«популярное» — это RAG-фича, нужны эмбеддинги).
+- `import-history-section` смержена в `main` (ff). Заведена ветка `saved-messages`.
+- **Backend ★ Избранное:** модель `SavedMessage` (снимок content; FK conversation_id → SET NULL; НЕ флаг на messages, т.к. их вайпают при ре-ингесте), схемы `SavedMessageIn/Out`, роуты `POST/GET/DELETE /saved` (`routes/saved.py`, зарегистрирован в main.py). Миграция autogenerate `efc12b5654c3` (down_revision 0001), применена на Neon. Smoke-тест свежим backend: openapi содержит /saved, POST→201, GET→1, DELETE→204, итог 0. (Прежний 404 — отвечал старый процесс на :8000; убил, поднял свежий. Прежний 400 на POST — кириллица в curl на Windows билась, ASCII-тело прошло; реальный браузер шлёт корректный UTF-8.)
+- **Web ★ Избранное:** `lib/api.ts` (+saveMessage/listSaved/deleteSaved+типы), кнопка ☆/★ на каждом сообщении в `/c/[id]` (состояние savedIds), новый раздел `/saved` (markdown, удаление, ссылка на разговор), вкладка «Избранное» в nav. Web build зелёный (роуты /, /history, /saved, /c/[id]).
+- **Открыто:** браузерная проверка (нужен backend с НОВЫМ кодом — перезапусти dev.bat); затем мерж в main. Дальше — Phase 2 RAG (нужен Ollama).
+
 **Как поднять backend локально (без Docker):**
 ```bash
 cd backend
