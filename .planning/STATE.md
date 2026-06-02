@@ -3,7 +3,7 @@
 > Короткий «где мы сейчас». История — в `../handoff.md`. План — в `ROADMAP.md`.
 > Обновлять при каждом значимом сдвиге.
 
-- **Фаза:** Phase 1 (capture + full-text search) — backend ✅, web ✅ (связка проверена), extension собран ✅ (capture в браузере ещё не проверен)
+- **Фаза:** Phase 1 (capture + full-text search) — backend ✅, web ✅ (связка проверена), extension ✅ (capture-пайплайн + мост MAIN→relay→background ПОДТВЕРЖДЁН в браузере; осталось проверить успешный POST при поднятом backend)
 - **Активный branch:** `main` — baseline-коммит `af61f83` запушен на GitHub (`https://github.com/StudentMe2712/PAM.git`). Фазовые ветки пока не созданы.
 - **Последний шаг:** хардненинг манифеста extension перед браузерным тестом: убран неиспользуемый `webRequest` (код юзает только `runtime`+`storage`); `https://chat.openai.com/*` добавлен в `host_permissions` (его матчат `chatgpt.ts`/`relay.ts`, а dynamic `registerContentScripts` требует matches ⊆ host_permissions — иначе регистрация MAIN-скриптов падает). Поправлены README (Next 14→16, +relay.ts) и `.env.example` (Neon/asyncpg DSN + backend читает `backend/.env`). Prod build зелёный. Baseline + это — на GitHub.
 - **До этого:** extension заскаффолжен (Plasmo 0.90 + React 19). Создан `tsconfig.json` + `assets/icon.png`. **Архитектурный фикс:** добавлен `contents/relay.ts` (isolated-world bridge), сломанные `chrome.runtime` слушатели убраны из MAIN-скриптов.

@@ -109,6 +109,11 @@
 - **Док-фиксы:** README (`Next.js 14`→`16`, добавлен `relay.ts` в дерево); `.env.example` (заметка про Neon/asyncpg DSN — direct endpoint + `?ssl=require` + префикс `postgresql+asyncpg://`; и что backend читает `backend/.env`, т.к. `env_file=".env"` CWD-relative).
 - **Важно для теста:** Plasmo dev НЕ хот-релоадит изменения `manifest` в `package.json` → пользователю надо перезапустить `npm run dev` (Ctrl+C + заново) и перезагрузить extension в `chrome://extensions`, иначе будет старый манифест (с webRequest, без chat.openai.com). Prod build уже пересобран и валиден.
 
+### 2026-06-02 — Сессия: dev.bat + подтверждение работы capture-моста
+- **`dev.bat`** в корне: запускает backend (venv+uvicorn --reload), web (`npm run dev`), extension (`plasmo dev`) в 3 отдельных окнах через `start /D`. Локальный Postgres не стартует (Neon + Docker на паузе). Когда вернётся Docker — backend-окно меняется на `docker compose up`.
+- **🎉 Capture-пайплайн ПОДТВЕРЖДЁН в браузере.** Пользователь загрузил extension (backend был выключен). Popup: `Сохранено:0, В очереди:1, Ошибок:1`. Это доказывает, что вся цепочка работает: патч `window.fetch` (MAIN) → `postMessage` → `relay.ts` (isolated) → `chrome.runtime.sendMessage` → очередь в `background.ts`. Единственный сбой — финальный `POST localhost:8000` (backend не запущен → 5 ретраев → `failed++`). **Мост MAIN→relay→background (мой фикс) работает.** Осталось: поднять backend, сбросить счётчики, переоткрыть разговор → должно уйти в «Сохранено».
+- Возможный остаточный риск: если backend поднят, но прилетит 422 — значит парсер отдаёт payload не по схеме (тогда смотреть claude.ts/chatgpt.ts). Но структурно payload собрался (иначе не дошёл бы до очереди).
+
 **Как поднять backend локально (без Docker):**
 ```bash
 cd backend
