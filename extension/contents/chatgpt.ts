@@ -39,6 +39,9 @@ function handleConversation(data: any) {
   if (!data || !data.mapping) return
   try {
     const messages = linearize(data.mapping)
+    console.log(
+      `[PAM/chatgpt] extracted ${messages.length} messages from ${Object.keys(data.mapping).length} nodes`
+    )
     if (messages.length === 0) return
 
     const normalized = {
@@ -82,9 +85,15 @@ function linearize(mapping: Record<string, any>): any[] {
     const msg = node.message
     if (msg) {
       const role = msg.author?.role || "user"
-      const parts: string[] = (msg.content?.parts || []).filter(
-        (p: any) => typeof p === "string" && p.trim().length > 0
-      )
+      // ChatGPT parts can be plain strings OR objects (multimodal / structured
+      // content). The old code dropped object-parts, losing whole messages.
+      const parts: string[] = (msg.content?.parts || [])
+        .map((p: any) => {
+          if (typeof p === "string") return p
+          if (p && typeof p === "object") return p.text || p.content || ""
+          return ""
+        })
+        .filter((s: string) => typeof s === "string" && s.trim().length > 0)
       const content = parts.join("\n").trim()
       if (content) {
         result.push({

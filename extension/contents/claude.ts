@@ -75,6 +75,9 @@ function handleConversation(data: any) {
         .filter(Boolean),
       raw: data
     }
+    console.log(
+      `[PAM/claude] extracted ${normalized.messages.length} of ${(data.chat_messages || []).length} chat_messages`
+    )
     if (normalized.messages.length === 0) return
 
     // Bridge: MAIN world -> isolated-world relay (contents/relay.ts) via postMessage.
