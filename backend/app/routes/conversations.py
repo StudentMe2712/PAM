@@ -1,0 +1,155 @@
+"""Conversation routes — ingest, list, detail."""
+from __future__ import annotations
+
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from ..db import get_session
+from ..models import Conversation, Message
+from ..schemas import (
+    ConversationDetail,
+    ConversationSummary,
+    IncomingConversation,
+    IngestResult,
+    MessageOut,
+)
+
+router = APIRouter(prefix="/conversations", tags=["conversations"])
+
+
+@router.post("", response_model=IngestResult)
+async def ingest_conversation(
+    payload: IncomingConversation,
+    session: AsyncSession = Depends(get_session),
+) -> IngestResult:
+    """UPSERT a conversation captured by the browser extension.
+
+    Idempotent on (source, external_id).
+    """
+    # find existing
+    q = select(Conversation).where(
+        Conversation.source == payload.source,
+        Conversation.external_id == payload.external_id,
+    )
+    existing = (await session.execute(q)).scalar_one_or_none()
+
+    created = existing is None
+
+    if existing is None:
+        existing = Conversation(
+            source=payload.source,
+            external_id=payload.external_id,
+            title=payload.title,
+            started_at=payload.started_at,
+            raw_json=payload.raw,
+        )
+        session.add(existing)
+        await session.flush()
+    else:
+        # update mutable fields
+        if payload.title:
+            existing.title = payload.title
+        if payload.raw is not None:
+            existing.raw_json = payload.raw
+        # Wipe and reinsert messages — simple but safe.
+        # For Phase 1 this is fine. Smarter diff comes later.
+        await session.execute(
+            Message.__table__.delete().where(Message.conversation_id == existing.id)
+        )
+
+    for m in payload.messages:
+        session.add(
+            Message(
+                conversation_id=existing.id,
+                role=m.role,
+                content=m.content,
+                position=m.position,
+                sent_at=m.sent_at,
+            )
+        )
+
+    await session.flush()
+
+    # Fill content_tsv for this conversation's messages in one UPDATE.
+    # Dictionary is "simple" (no stemming) so Russian content also matches.
+    await session.execute(
+        update(Message)
+        .where(Message.conversation_id == existing.id)
+        .values(content_tsv=func.to_tsvector("simple", Message.content))
+    )
+
+    await session.commit()
+
+    return IngestResult(
+        conversation_id=existing.id,
+        created=created,
+        message_count=len(payload.messages),
+    )
+
+
+@router.get("", response_model=list[ConversationSummary])
+async def list_conversations(
+    source: str | None = Query(None, description="filter: chatgpt|claude|gemini"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    session: AsyncSession = Depends(get_session),
+) -> list[ConversationSummary]:
+    """List conversations newest-first."""
+    q = (
+        select(
+            Conversation,
+            func.count(Message.id).label("msg_count"),
+        )
+        .outerjoin(Message)
+        .group_by(Conversation.id)
+        .order_by(Conversation.updated_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    if source:
+        q = q.where(Conversation.source == source)
+
+    rows = (await session.execute(q)).all()
+    out: list[ConversationSummary] = []
+    for conv, cnt in rows:
+        s = ConversationSummary.model_validate(conv)
+        s.message_count = int(cnt or 0)
+        out.append(s)
+    return out
+
+
+@router.get("/{conv_id}", response_model=ConversationDetail)
+async def get_conversation(
+    conv_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> ConversationDetail:
+    q = (
+        select(Conversation)
+        .where(Conversation.id == conv_id)
+        .options(selectinload(Conversation.messages))
+    )
+    conv = (await session.execute(q)).scalar_one_or_none()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    detail = ConversationDetail.model_validate(conv)
+    detail.message_count = len(conv.messages)
+    detail.messages = [MessageOut.model_validate(m) for m in conv.messages]
+    return detail
+
+
+@router.delete("/{conv_id}", status_code=204)
+async def delete_conversation(
+    conv_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    q = select(Conversation).where(Conversation.id == conv_id)
+    conv = (await session.execute(q)).scalar_one_or_none()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    await session.delete(conv)
+    await session.commit()

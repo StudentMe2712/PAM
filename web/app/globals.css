@@ -1,0 +1,5 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* Тему задаёт layout.tsx (bg-neutral-950 / text-neutral-100 / font-mono).
+   Здесь только подключение Tailwind v4 и плагина typography для классов prose. */

@@ -1,0 +1,76 @@
+"""Pydantic schemas for the REST API."""
+from __future__ import annotations
+
+import uuid
+from datetime import datetime
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+
+Source = Literal["chatgpt", "claude", "gemini"]
+Role = Literal["user", "assistant", "system", "tool"]
+
+
+# ---- Inbound (from extension) ----
+
+class IncomingMessage(BaseModel):
+    role: Role
+    content: str
+    position: int = 0
+    sent_at: datetime | None = None
+
+
+class IncomingConversation(BaseModel):
+    """Payload the extension sends to the backend after capturing a conversation."""
+
+    source: Source
+    external_id: str
+    title: str | None = None
+    started_at: datetime | None = None
+    messages: list[IncomingMessage] = Field(default_factory=list)
+    raw: dict[str, Any] | None = None
+
+
+# ---- Outbound (to the web UI) ----
+
+class MessageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    role: str
+    content: str
+    position: int
+    sent_at: datetime | None
+
+
+class ConversationSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    source: str
+    external_id: str
+    title: str | None
+    started_at: datetime | None
+    updated_at: datetime
+    message_count: int = 0
+
+
+class ConversationDetail(ConversationSummary):
+    messages: list[MessageOut] = Field(default_factory=list)
+
+
+class SearchHit(BaseModel):
+    conversation_id: uuid.UUID
+    message_id: uuid.UUID
+    source: str
+    title: str | None
+    role: str
+    snippet: str
+    sent_at: datetime | None
+    rank: float | None = None
+
+
+class IngestResult(BaseModel):
+    conversation_id: uuid.UUID
+    created: bool
+    message_count: int
