@@ -97,9 +97,9 @@ export default function ConversationPage({
 function BackLink() {
   return (
     <Link
-      href="/"
+      href="/history"
       className="text-xs uppercase tracking-widest text-neutral-500 hover:text-lime-400">
-      ← к списку
+      ← к истории
     </Link>
   )
 }
