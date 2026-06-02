@@ -5,7 +5,8 @@
 
 - **Фаза:** Phase 1 (capture + full-text search) — backend ✅, web ✅ (связка проверена), extension собран ✅ (capture в браузере ещё не проверен)
 - **Активный branch:** `main` — baseline-коммит `af61f83` запушен на GitHub (`https://github.com/StudentMe2712/PAM.git`). Фазовые ветки пока не созданы.
-- **Последний шаг:** extension заскаффолжен (Plasmo 0.90 + React 19, `plasmo build` зелёный). Создан `tsconfig.json` (Plasmo не генерит сам) и `assets/icon.png` (нужна Plasmo). **Архитектурный фикс:** MAIN-world скрипты вызывали `chrome.runtime.sendMessage`, недоступный в MAIN-мире → добавлен `contents/relay.ts` (isolated-world bridge), сломанные слушатели убраны из `claude.ts`/`chatgpt.ts`. Обновлён `CLAUDE.md` под это.
+- **Последний шаг:** хардненинг манифеста extension перед браузерным тестом: убран неиспользуемый `webRequest` (код юзает только `runtime`+`storage`); `https://chat.openai.com/*` добавлен в `host_permissions` (его матчат `chatgpt.ts`/`relay.ts`, а dynamic `registerContentScripts` требует matches ⊆ host_permissions — иначе регистрация MAIN-скриптов падает). Поправлены README (Next 14→16, +relay.ts) и `.env.example` (Neon/asyncpg DSN + backend читает `backend/.env`). Prod build зелёный. Baseline + это — на GitHub.
+- **До этого:** extension заскаффолжен (Plasmo 0.90 + React 19). Создан `tsconfig.json` + `assets/icon.png`. **Архитектурный фикс:** добавлен `contents/relay.ts` (isolated-world bridge), сломанные `chrome.runtime` слушатели убраны из MAIN-скриптов.
 - **До этого:** связка web↔backend проверена вживую (CORS + ingest/list/search с `Origin: localhost:3000`, тестовая строка удалена). web на чистом Tailwind (Next 16 + Tailwind v4), 2 бага в `page.tsx` починены.
 
 ## 🔴 Блокеры / ограничения

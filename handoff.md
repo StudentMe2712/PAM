@@ -102,6 +102,13 @@
 - **Архитектурный фикс (баг в исходниках):** `claude.ts` и `chatgpt.ts` объявлены `world: "MAIN"`, но содержали `window.addEventListener("message", … chrome.runtime.sendMessage …)`. В MAIN-мире `chrome.runtime` недоступен → мост был бы сломан (capture не доходил бы до background). Это противоречило архитектуре в CLAUDE.md («слушатель в isolated-мире»). Решение: создан `contents/relay.ts` (без `world` → isolated, матчит все 4 паттерна), слушатели убраны из MAIN-скриптов. Обновлён CLAUDE.md (абзац про page/isolated world + file map) и `extension/INSTALL.md`.
 - **НЕ проверено вживую:** реальный перехват на claude.ai/chatgpt (нужен Chrome + залогиненный пользователь). Это «самая хрупкая часть Phase 1» по CLAUDE.md — URL_RE/парсеры могли устареть. Фикс моста тоже финально проверяется только в браузере.
 
+### 2026-06-02 — Сессия: хардненинг манифеста extension (перед браузерным тестом)
+- Пользователь запустил `npm run dev` (Plasmo dev собрался успешно). Перед загрузкой в Chrome прошёлся по оставшимся техническим моментам:
+- **Убран `webRequest`** из `permissions` — grep подтвердил, что код использует только `chrome.runtime` + `chrome.storage`, а capture идёт через патч `window.fetch`, не через `chrome.webRequest`. Неиспользуемое разрешение = лишняя поверхность атаки + пугающий промпт (а проект privacy-first).
+- **Добавлен `https://chat.openai.com/*` в `host_permissions`** — его матчат `chatgpt.ts` и `relay.ts`, но в host_permissions его не было. MAIN-world скрипты Plasmo регистрирует динамически через `chrome.scripting.registerContentScripts`, который требует matches ⊆ host_permissions; рассинхрон мог уронить регистрацию ВСЕХ MAIN-скриптов → capture не работал бы даже на chatgpt.com.
+- **Док-фиксы:** README (`Next.js 14`→`16`, добавлен `relay.ts` в дерево); `.env.example` (заметка про Neon/asyncpg DSN — direct endpoint + `?ssl=require` + префикс `postgresql+asyncpg://`; и что backend читает `backend/.env`, т.к. `env_file=".env"` CWD-relative).
+- **Важно для теста:** Plasmo dev НЕ хот-релоадит изменения `manifest` в `package.json` → пользователю надо перезапустить `npm run dev` (Ctrl+C + заново) и перезагрузить extension в `chrome://extensions`, иначе будет старый манифест (с webRequest, без chat.openai.com). Prod build уже пересобран и валиден.
+
 **Как поднять backend локально (без Docker):**
 ```bash
 cd backend

@@ -106,9 +106,10 @@ pam/
 ├── extension/              Plasmo Chrome extension
 │   ├── background.ts       service worker (queue, retries)
 │   ├── popup.tsx           extension popup UI
-│   ├── contents/           per-site interceptors
+│   ├── contents/           per-site interceptors (claude/chatgpt/gemini, MAIN world)
+│   │   └── relay.ts        isolated-world bridge → background worker
 │   └── lib/                shared utils
-├── web/                    Next.js 14 UI
+├── web/                    Next.js 16 UI
 │   ├── app/
 │   │   ├── page.tsx        list & search
 │   │   └── c/[id]/         conversation detail
