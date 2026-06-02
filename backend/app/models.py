@@ -84,3 +84,35 @@ class Message(Base):
         Index("ix_messages_conv", "conversation_id"),
         Index("ix_messages_tsv", "content_tsv", postgresql_using="gin"),
     )
+
+
+class SavedMessage(Base):
+    """A message the user starred ("Избранное").
+
+    Stored as a SNAPSHOT (content copied here) rather than a flag on `messages`,
+    because messages are wiped-and-reinserted on every re-capture (UPSERT). The
+    snapshot survives re-ingest. `conversation_id` links back if the conversation
+    still exists (SET NULL on delete).
+    """
+
+    __tablename__ = "saved_messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    conversation_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    role: Mapped[str] = mapped_column(String(32), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    position: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    __table_args__ = (Index("ix_saved_messages_created", "created_at"),)

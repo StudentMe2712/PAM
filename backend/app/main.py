@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .routes import conversations, search
+from .routes import conversations, saved, search
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -43,6 +43,7 @@ app.add_middleware(
 )
 
 app.include_router(conversations.router)
+app.include_router(saved.router)
 app.include_router(search.router)
 
 

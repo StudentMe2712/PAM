@@ -74,3 +74,29 @@ class IngestResult(BaseModel):
     conversation_id: uuid.UUID
     created: bool
     message_count: int
+
+
+# ---- Saved ("Избранное") messages ----
+
+class SavedMessageIn(BaseModel):
+    conversation_id: uuid.UUID | None = None
+    source: str
+    title: str | None = None
+    role: str
+    content: str
+    position: int | None = None
+    note: str | None = None
+
+
+class SavedMessageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    conversation_id: uuid.UUID | None
+    source: str
+    title: str | None
+    role: str
+    content: str
+    position: int | None
+    note: str | None
+    created_at: datetime
