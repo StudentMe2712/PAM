@@ -123,6 +123,13 @@
   - extension: вероятная причина «не вся переписка» — `chatgpt.ts` отбрасывал object-парты (мультимодальный/структурный контент); теперь извлекает `p.text||p.content`. Оба парсера логируют «extracted N of M» для диагностики. Build зелёный.
 - **Открыто (нужен пользователь):** прогнать перехват, снять из DevTools console числа `[PAM/...] extracted N of M`. Разрыв N<M → теряем парты (точечный фикс парсера); M уже меньше реального → сайт отдаёт частично (пагинация, надо дотягивать).
 
+### 2026-06-02 — Сессия: фоновый dev.bat, nav-бар, диагностика полноты
+- **`dev.bat` переписан на фоновый запуск:** backend и extension стартуют скрыто через `powershell Start-Process -WindowStyle Hidden` с редиректом в логи (`backend\dev-backend.log`, `extension\dev-extension.log` — оба под `*.log` в .gitignore). web — в видимом окне. Проверил, что `Hidden + RedirectStandardOutput` работает на PS 5.1. Добавлен **`stop-dev.bat`** (через `Get-CimInstance` матчит `uvicorn app.main`/`plasmo` и `Stop-Process`). Оба .bat — чистый ASCII.
+- **Nav-бар** (`web/app/nav.tsx`, клиентский, `usePathname`): sticky-бар с backdrop-blur, бренд PAM, табы с активным состоянием, «скоро»-чипы для Чат/Лектор. Заменил прежние «ссылки как на форуме». web build зелёный.
+- **Диагностика перехвата:** пользователь дал `[PAM/chatgpt] extracted 48 messages from 81 nodes`. Вывод: 33 узла — системные/пустые/tool, 48 — вероятно полная нить (не потеря). Усилил лог разбивкой по ролям (user/assistant/...), чтобы подтвердить. CSP-ошибка `ws://localhost:1815` = Plasmo HMR-вебсокет, только в dev, на capture не влияет.
+- **Запланированы фичи раздела «Импорт»** (ROADMAP): pin важных сообщений, mindmap тем «что чаще спрашиваешь» (v1 частотность / v2 эмбеддинги Phase 2), аналитика. Заметка про ChatGPT: захват по JSON из fetch, не по скроллу — порядок «старое вверху» на полноту не влияет.
+- Всё на ветке `import-history-section`.
+
 **Как поднять backend локально (без Docker):**
 ```bash
 cd backend
