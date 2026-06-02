@@ -1,37 +1,37 @@
 @echo off
-chcp 65001 >nul
 REM ============================================================
-REM  PAM - запуск всего стека для локальной разработки одним файлом.
-REM  Открывает 3 окна: backend (FastAPI), web (Next.js), extension (Plasmo).
-REM  БД - Neon (облако), читается из backend\.env. Локальный Postgres
-REM  не нужен, пока Docker на паузе. Когда вернётся Docker - backend-окно
-REM  заменяется на `docker compose up`.
+REM  PAM - one-shot local dev launcher.
+REM  Opens 3 windows: backend (FastAPI), web (Next.js), extension (Plasmo).
+REM  DB is Neon (cloud), read from backend\.env. No local Postgres while
+REM  Docker is paused; when Docker is back, replace the backend window
+REM  with `docker compose up`.
 REM
-REM  Запуск: дважды кликнуть по файлу, либо `.\dev.bat` в терминале.
-REM  Остановить: закрыть каждое из открывшихся окон (или Ctrl+C в нём).
+REM  Run: double-click this file, or `.\dev.bat` in a terminal.
+REM  Stop: close each opened window (or Ctrl+C inside it).
+REM  Comments/echo are ASCII on purpose - Cyrillic + chcp breaks cmd .bat.
 REM ============================================================
 setlocal
 set "ROOT=%~dp0"
 
-if not exist "%ROOT%backend\.venv\Scripts\python.exe" (
-  echo [PAM] Не найден backend\.venv - сначала создай окружение:
-  echo       py -3.11 -m venv backend\.venv
-  echo       backend\.venv\Scripts\python -m pip install -e backend
-  echo [PAM] Подробности - в handoff.md.
-  pause
-  exit /b 1
-)
+if not exist "%ROOT%backend\.venv\Scripts\python.exe" goto :noenv
 
-echo [PAM] Запускаю backend / web / extension в отдельных окнах...
+echo [PAM] Starting backend / web / extension in separate windows...
 
 start "PAM backend :8000" /D "%ROOT%backend" cmd /k ".venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload"
-start "PAM web :3000"     /D "%ROOT%web"     cmd /k "npm run dev"
-start "PAM extension"     /D "%ROOT%extension" cmd /k "npm run dev"
+start "PAM web :3000" /D "%ROOT%web" cmd /k "npm run dev"
+start "PAM extension" /D "%ROOT%extension" cmd /k "npm run dev"
 
 echo.
-echo [PAM] Готово. Сервисы поднимаются в отдельных окнах:
-echo       Backend : http://localhost:8000/docs
-echo       Web UI  : http://localhost:3000
-echo       Extension: extension\build\chrome-mv3-dev  (Load unpacked в chrome://extensions)
+echo [PAM] Backend  : http://localhost:8000/docs
+echo [PAM] Web UI   : http://localhost:3000
+echo [PAM] Extension: extension\build\chrome-mv3-dev  (Load unpacked in chrome://extensions)
 echo.
-endlocal
+echo [PAM] You can close this window.
+goto :eof
+
+:noenv
+echo [PAM] backend\.venv not found. Create it first:
+echo       py -3.11 -m venv backend\.venv
+echo       backend\.venv\Scripts\python -m pip install -e backend
+echo [PAM] See handoff.md for details.
+pause
