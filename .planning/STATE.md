@@ -4,7 +4,7 @@
 > Обновлять при каждом значимом сдвиге.
 
 - **Фаза:** Phase 1 (capture + full-text search) — backend ✅, web ✅ (связка проверена), extension собран ✅ (capture в браузере ещё не проверен)
-- **Активный branch:** `master` (фазовые ветки пока не созданы, коммитов нет)
+- **Активный branch:** `main` — baseline-коммит `af61f83` запушен на GitHub (`https://github.com/StudentMe2712/PAM.git`). Фазовые ветки пока не созданы.
 - **Последний шаг:** extension заскаффолжен (Plasmo 0.90 + React 19, `plasmo build` зелёный). Создан `tsconfig.json` (Plasmo не генерит сам) и `assets/icon.png` (нужна Plasmo). **Архитектурный фикс:** MAIN-world скрипты вызывали `chrome.runtime.sendMessage`, недоступный в MAIN-мире → добавлен `contents/relay.ts` (isolated-world bridge), сломанные слушатели убраны из `claude.ts`/`chatgpt.ts`. Обновлён `CLAUDE.md` под это.
 - **До этого:** связка web↔backend проверена вживую (CORS + ingest/list/search с `Origin: localhost:3000`, тестовая строка удалена). web на чистом Tailwind (Next 16 + Tailwind v4), 2 бага в `page.tsx` починены.
 
