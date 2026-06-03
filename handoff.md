@@ -157,6 +157,17 @@
 - **Дальше по Phase 2** (см. STATE): чанкование → эмбеддинг-воркер (Ollama) → `/search/semantic` + гибрид (RRF) → UI-переключатель → тесты → мерж.
 - Запрос эмбеддинга для воркера: `POST http://localhost:11434/api/embeddings` body `{"model":"nomic-embed-text","prompt":"<text>"}` → `{"embedding":[...768...]}`.
 
+### 2026-06-03 — Сессия: Phase 2 ядро (чанкование + эмбеддинги + семантический поиск)
+- Трекаю задачи через таск-лист (по просьбе пользователя): #1 чанкование ✅, #2 воркер ✅, #3 семантика ✅; #4 гибрид/#5 UI/#6 тесты+мерж — pending.
+- **`app/indexing.py`**: `chunk_text` (~1000 симв, по абзацам, хард-сплит длинных), `embed_text` (httpx → Ollama `/api/embeddings`, `nomic-embed-text`), `create_missing_chunks` (backfill), `embed_pending` (64 за раз), `index_pending` (backfill+embed, отдаёт counts).
+- **Чанкование при ingest**: `routes/conversations.py` создаёт `Chunk` для новых сообщений (embedding NULL). На ре-ингесте старые messages удаляются → chunks каскадятся (FK CASCADE) → создаются заново.
+- **Воркер**: фоновый цикл в `main.py` lifespan (asyncio task, каждые 15с `index_pending`, устойчив к падению Ollama — log+continue, idle = дешёвые SELECT без вызова Ollama). + ручной `POST /index/run` (`routes/indexing.py`).
+- **`GET /search/semantic`** (`routes/search.py`): `embed_text(q)` → `Chunk.embedding.cosine_distance(qvec)` (`<=>`, использует HNSW), джойн message+conversation, топ-N; 503 если Ollama недоступна. `rank` = `1 - distance`.
+- **Config**: `OLLAMA_URL`, `EMBED_MODEL` в settings. Деп `httpx` добавлен (venv + pyproject).
+- **E2E тест (8001, fresh backend)**: ingest «Хлеб»+«Авто» → `/index/run` → `/search/semantic q="рецепт домашнего хлеба"` → топ **«Хлеб» 0.81** (семантика по смыслу!), полнотекст работает, тестовые разговоры удалены. 7/9 ассертов — 2 «фейла» НЕ баги (фоновый воркер опередил ручной run по chunks_created; remaining=403 — бэклог реальных данных).
+- **ОТКРЫТИЕ:** в Neon уже лежат реальные разговоры пользователя (~467 chunks, всплыл реальный «Excel в 1С»). Семантика на них работает. Бэклог эмбеддингов дожуётся воркером.
+- Всё на ветке `phase-2-rag` (НЕ мержено — впереди гибрид/UI/тесты).
+
 **Как поднять backend локально (без Docker):**
 ```bash
 cd backend

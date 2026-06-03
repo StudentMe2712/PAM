@@ -22,15 +22,16 @@
 - [x] `pgvector` (python) в venv + pyproject. Модель `Chunk` (`message_id` FK CASCADE, content, position, `embedding vector(768)`, created_at).
 - [x] Миграция `2ec708645017`: таблица `chunks` + индексы `ix_chunks_message` и HNSW `ix_chunks_embedding_hnsw` (`vector_cosine_ops`). Применена и проверена на Neon.
 
-Осталось по Phase 2 (по порядку):
-- [ ] **Чанкование**: функция нарезки `content` сообщения на куски (~512 симв / по абзацам), запись в `chunks`. Заполнять при ingest (и backfill для существующих).
-- [ ] **Эмбеддинг-воркер**: берёт chunks с `embedding IS NULL`, зовёт Ollama `POST :11434/api/embeddings` (model `nomic-embed-text`), пишет вектор. (Локально, без внешних API.)
-- [ ] **`POST /search/semantic`**: эмбеддит запрос → `ORDER BY embedding <=> $vec` (косинус) → топ-N. Затем **гибрид** (RRF: объединить ranks полнотекста и вектора).
-- [ ] **UI**: переключатель text / semantic / hybrid в `/history` поиске.
-- [ ] Тесты + мерж в `main`.
+Phase 2 прогресс (трекаю в таск-листе):
+- [x] **Чанкование** (`indexing.py::chunk_text`, ~1000 симв по абзацам) — создаётся при ingest + backfill `create_missing_chunks`.
+- [x] **Эмбеддинг-воркер**: `embed_text` → Ollama `/api/embeddings`; `embed_pending` пишет вектор. Фоновый цикл в `main.py` lifespan (каждые 15с, устойчив к падению Ollama) + ручной `POST /index/run`.
+- [x] **`GET /search/semantic`**: эмбеддит запрос → `Chunk.embedding.cosine_distance` (`<=>`) → топ-N. **Проверено: запрос «рецепт домашнего хлеба» → топ «Хлеб» 0.81 (по смыслу).**
+- [ ] **Гибрид** (RRF: полнотекст + вектор) — `GET /search/hybrid`. (задача #4)
+- [ ] **UI** переключатель text/semantic/hybrid в `/history`. (задача #5)
+- [ ] Тесты + мерж в `main`. (задача #6)
 
-Ollama готова (служба :11434, `nomic-embed-text` 768-dim). Запрос эмбеддинга: `curl :11434/api/embeddings -d '{"model":"nomic-embed-text","prompt":"..."}'` → `{"embedding":[768]}`.
-Фоновые: `contents/gemini.ts`; Docker — по слову пользователя; авто-«популярное»/mindmap v2 — поверх этих эмбеддингов.
+**⚠️ Реальные данные в Neon:** пользователь уже накопил реальные разговоры (~467 chunks). Семантика на них работает. Бэклог эмбеддингов (~403 на момент теста) фоновый воркер дожуёт по 64/15с, когда поднимется backend с Phase 2 кодом. (Напоминание: Neon задумывался как dev; реальные данные → при возврате Docker в локальный Postgres; креды ротировать.)
+Ollama готова (:11434, `nomic-embed-text` 768-dim). Фоновые: `contents/gemini.ts`; Docker — по слову пользователя.
 
 ## 🧭 Мультиагенты (GSD-style, через Agent-инструмент Claude Code)
 - **Explore** — широкий поиск по коду перед планированием шага.
