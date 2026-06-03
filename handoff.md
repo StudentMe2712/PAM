@@ -193,6 +193,16 @@
 - **Phase 3 #12 готов:** модель `ProfileFact` + миграция `4b747af609d8` (на Neon). Поймал баг autogenerate: он пытался дропнуть `ix_chunks_embedding_hnsw` (op.execute-индекс не виден autogenerate) — убрал лишние drop/create из миграции. HNSW цел.
 - **Осталось Phase 3 (#13–#16):** извлечение фактов (Groq JSON + guards) → факты в контекст чата + /facts API → UI /me → security-review+мерж. Ветка `phase-3-memory`.
 
+### 2026-06-03 — Сессия: подготовка к переустановке Windows
+- Пользователь вечером переставляет Windows. Аудит сохранности:
+  - **В git/GitHub:** весь код + миграции + доки + ветки. `main` (фазы 1–4), `phase-3-memory` (текущая, память). Всё запушено (`git push --all`).
+  - **НЕ в git (сохранить вручную!):** `backend/.env` (gitignored) — `DATABASE_URL` Neon + `GROQ_API_KEY`. Восстановимы и из дашбордов Neon/Groq.
+  - **В облаке:** все данные в Neon (разговоры/чанки/эмбеддинги/факты) — переживут переустановку.
+  - **Пересоздаётся:** `.venv`, `node_modules`, билды, модель Ollama (`ollama pull nomic-embed-text`).
+- Создан **`docs/SETUP.md`** — пошаговое восстановление с нуля. `.env.example` дополнен всеми текущими переменными (Ollama/Groq/LLM).
+- **`v0dev/`** закоммичен — сгенерированный на v0.dev макет чат-GUI (исходники `components/pam/*` + shadcn ui). Не подключён; интеграция — отдельный шаг.
+- Активная ветка для продолжения: **`phase-3-memory`** (после клона: `git checkout phase-3-memory`). Здесь же — самый свежий STATE/handoff.
+
 **Как поднять backend локально (без Docker):**
 ```bash
 cd backend
