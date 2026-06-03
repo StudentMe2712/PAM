@@ -26,6 +26,7 @@ export default function ChatPage() {
   const [sources, setSources] = useState<SourceRef[]>([])
   const [error, setError] = useState<string | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
+  const taRef = useRef<HTMLTextAreaElement>(null)
 
   const loadChats = () =>
     listConversations({ source: "pam", limit: 50 })
@@ -38,6 +39,14 @@ export default function ChatPage() {
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
+
+  function growTextarea() {
+    const el = taRef.current
+    if (el) {
+      el.style.height = "auto"
+      el.style.height = Math.min(el.scrollHeight, 160) + "px"
+    }
+  }
 
   async function openChat(id: string) {
     setError(null)
@@ -67,6 +76,7 @@ export default function ChatPage() {
     const text = input.trim()
     if (!text || busy) return
     setInput("")
+    requestAnimationFrame(growTextarea)
     setError(null)
     setSources([])
     setBusy(true)
@@ -97,25 +107,25 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex gap-6 h-[calc(100vh-9rem)]">
+    <div className="flex gap-4 h-[calc(100vh-9rem)]">
       {/* sidebar */}
-      <aside className="hidden sm:flex w-56 shrink-0 flex-col border-r border-neutral-800 pr-4">
+      <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-neutral-800 pr-3">
         <button
           onClick={newChat}
-          className="mb-3 text-xs uppercase tracking-widest border border-neutral-800 rounded-md px-3 py-2 text-neutral-300 hover:text-lime-400 hover:border-lime-400/40 transition-colors">
-          + новый чат
+          className="mb-3 flex items-center gap-2 text-xs uppercase tracking-widest border border-neutral-800 rounded-lg px-3 py-2.5 text-neutral-300 hover:text-lime-400 hover:border-lime-400/40 transition-colors">
+          <span className="text-base leading-none">＋</span> Новый чат
         </button>
-        <div className="text-[10px] uppercase tracking-widest text-neutral-600 mb-2">
-          // чаты
+        <div className="text-[10px] uppercase tracking-widest text-neutral-600 mb-2 px-1">
+          чаты
         </div>
-        <ul className="overflow-y-auto space-y-1 text-sm">
+        <ul className="overflow-y-auto space-y-0.5 text-sm">
           {chats.map((c) => (
             <li key={c.id}>
               <button
                 onClick={() => openChat(c.id)}
-                className={`block w-full text-left truncate px-2 py-1.5 rounded-sm transition-colors ${
+                className={`block w-full text-left truncate px-2.5 py-2 rounded-lg transition-colors ${
                   c.id === convId
-                    ? "bg-neutral-800 text-lime-400"
+                    ? "bg-neutral-800 text-neutral-100"
                     : "text-neutral-400 hover:text-neutral-100 hover:bg-neutral-900"
                 }`}>
                 {c.title || "(без названия)"}
@@ -123,95 +133,132 @@ export default function ChatPage() {
             </li>
           ))}
           {chats.length === 0 && (
-            <li className="text-neutral-600 text-xs px-2">пока пусто</li>
+            <li className="text-neutral-600 text-xs px-2 py-1">пока пусто</li>
           )}
         </ul>
       </aside>
 
-      {/* main chat column */}
+      {/* chat column */}
       <main className="flex-1 flex flex-col min-w-0">
-        <div className="flex-1 overflow-y-auto space-y-5 pr-1">
-          {messages.length === 0 ? (
-            <div className="text-neutral-500 text-sm font-sans h-full flex items-center justify-center text-center px-6">
-              Спроси что угодно — я помню твои прошлые разговоры и отвечаю с опорой
-              на них.
-            </div>
-          ) : (
-            messages.map((m, i) => (
-              <article
-                key={i}
-                className="border-l-2 pl-4 py-1"
-                style={{ borderColor: m.role === "user" ? "#5ee9d0" : "#a3e635" }}>
-                <div className="text-[10px] uppercase tracking-widest text-neutral-500 mb-1">
-                  {m.role === "user" ? "ты" : "pam"}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-3xl mx-auto px-1 py-2 space-y-6">
+            {messages.length === 0 ? (
+              <div className="h-[60vh] flex flex-col items-center justify-center text-center px-6">
+                <div className="w-10 h-10 rounded-xl bg-lime-400/10 border border-lime-400/30 text-lime-400 flex items-center justify-center font-semibold mb-4">
+                  P
                 </div>
-                {m.role === "assistant" ? (
-                  <div className="prose prose-invert prose-sm max-w-none font-sans">
-                    {m.content ? (
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {m.content}
-                      </ReactMarkdown>
-                    ) : (
-                      <span className="text-neutral-600">// думаю…</span>
-                    )}
+                <div className="text-lg font-semibold mb-1">Чат с твоей памятью</div>
+                <p className="text-neutral-400 text-sm font-sans max-w-md">
+                  Спроси что угодно — я помню твои прошлые разговоры (ChatGPT,
+                  Claude, Gemini) и отвечаю с опорой на них.
+                </p>
+              </div>
+            ) : (
+              messages.map((m, i) =>
+                m.role === "user" ? (
+                  <div key={i} className="flex justify-end">
+                    <div className="bg-neutral-800 text-neutral-100 rounded-2xl rounded-br-md px-4 py-2.5 max-w-[80%] text-sm font-sans whitespace-pre-wrap">
+                      {m.content}
+                    </div>
                   </div>
                 ) : (
-                  <div className="text-sm font-sans whitespace-pre-wrap">
-                    {m.content}
+                  <div key={i} className="flex gap-3">
+                    <div className="shrink-0 w-7 h-7 rounded-md bg-lime-400/10 border border-lime-400/30 text-lime-400 flex items-center justify-center text-[11px] font-semibold mt-0.5">
+                      P
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      {m.content ? (
+                        <div className="prose prose-invert prose-sm max-w-none font-sans">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {m.content}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <TypingDots />
+                      )}
+                      {i === messages.length - 1 && sources.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-1.5 items-center">
+                          <span className="text-[10px] uppercase tracking-widest text-neutral-600">
+                            память:
+                          </span>
+                          {sources.map((s, j) => (
+                            <span
+                              key={j}
+                              className="text-[10px] px-1.5 py-0.5 border border-neutral-800 rounded text-neutral-500 truncate max-w-[220px]">
+                              {s.source}/{s.title || "—"}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
-              </article>
-            ))
-          )}
-          <div ref={endRef} />
+                )
+              )
+            )}
+            <div ref={endRef} />
+          </div>
         </div>
 
-        {sources.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5 items-center">
-            <span className="text-[10px] uppercase tracking-widest text-neutral-600">
-              // память:
-            </span>
-            {sources.map((s, i) => (
-              <span
-                key={i}
-                className="text-[10px] px-1.5 py-0.5 border border-neutral-800 rounded text-neutral-500 truncate max-w-[200px]">
-                {s.source}/{s.title || "—"}
-              </span>
-            ))}
+        {error && (
+          <div className="max-w-3xl mx-auto w-full text-red-400 text-sm font-sans py-2">
+            Ошибка: {error}
           </div>
         )}
 
-        {error && (
-          <div className="mt-3 text-red-400 text-sm font-sans">Ошибка: {error}</div>
-        )}
-
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            send()
-          }}
-          className="mt-3 flex gap-2 items-end">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
+        {/* input bar */}
+        <div className="border-t border-neutral-800 pt-3">
+          <div className="max-w-3xl mx-auto">
+            <form
+              onSubmit={(e) => {
                 e.preventDefault()
                 send()
-              }
-            }}
-            rows={2}
-            placeholder="// напиши сообщение… (Enter — отправить, Shift+Enter — перенос)"
-            className="flex-1 resize-none bg-neutral-900 border border-neutral-800 rounded-sm px-3 py-2 text-sm outline-none focus:border-lime-400 placeholder:text-neutral-600 font-sans"
-          />
-          <button
-            type="submit"
-            disabled={busy || !input.trim()}
-            className="shrink-0 h-10 px-4 rounded-sm border border-neutral-800 text-neutral-300 hover:text-lime-400 hover:border-lime-400/40 transition-colors disabled:opacity-50">
-            {busy ? "…" : "→"}
-          </button>
-        </form>
+              }}
+              className="flex items-end gap-2 bg-neutral-900 border border-neutral-800 rounded-2xl px-3 py-2 focus-within:border-lime-400/50 transition-colors">
+              <textarea
+                ref={taRef}
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value)
+                  growTextarea()
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault()
+                    send()
+                  }
+                }}
+                rows={1}
+                placeholder="Напиши сообщение…"
+                className="flex-1 resize-none bg-transparent outline-none text-sm font-sans py-1.5 placeholder:text-neutral-600 max-h-40"
+              />
+              <button
+                type="submit"
+                disabled={busy || !input.trim()}
+                aria-label="Отправить"
+                className="shrink-0 w-8 h-8 rounded-full bg-lime-400 text-neutral-950 font-bold flex items-center justify-center transition-colors disabled:bg-neutral-700 disabled:text-neutral-500">
+                ↑
+              </button>
+            </form>
+            <div className="text-[10px] text-neutral-600 text-center mt-1.5">
+              PAM помнит твои разговоры · Enter — отправить, Shift+Enter — перенос
+            </div>
+          </div>
+        </div>
       </main>
+    </div>
+  )
+}
+
+function TypingDots() {
+  return (
+    <div className="flex items-center gap-1 py-2">
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className="w-1.5 h-1.5 rounded-full bg-neutral-500 animate-bounce"
+          style={{ animationDelay: `${i * 0.15}s` }}
+        />
+      ))}
     </div>
   )
 }

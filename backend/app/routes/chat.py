@@ -140,7 +140,15 @@ async def chat(payload: ChatIn, session: AsyncSession = Depends(get_session)):
         {"role": "user", "content": f"<context>\n{ctx}\n</context>\n\nЗапрос: {user_msg}"}
     )
 
-    sources = [{"source": r.source, "title": r.title} for r in ctx_rows]
+    # Dedupe sources for the UI chips (the same conversation can yield several chunks).
+    sources: list[dict] = []
+    _seen: set = set()
+    for r in ctx_rows:
+        key = (r.source, r.title)
+        if key in _seen:
+            continue
+        _seen.add(key)
+        sources.append({"source": r.source, "title": r.title})
 
     async def gen() -> AsyncIterator[bytes]:
         yield _sse({"sources": sources})
