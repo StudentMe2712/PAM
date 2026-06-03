@@ -17,12 +17,16 @@
 - Docker на паузе (Windows). Backend гоняем локально: `backend/.venv` (Python 3.11) против Neon.
 - **Neon — ТОЛЬКО dev/тесты, НЕ реальные разговоры** (local-first). Реальные данные — в локальный Postgres, когда вернётся Docker.
 
-## ⏭️ Следующий шаг — ветка `phase-2-rag` (RAG)
-Сделано на ветке:
-- [x] `pgvector` (python) в venv + pyproject. Модель `Chunk` (`message_id` FK CASCADE, content, position, `embedding vector(768)`, created_at).
-- [x] Миграция `2ec708645017`: таблица `chunks` + индексы `ix_chunks_message` и HNSW `ix_chunks_embedding_hnsw` (`vector_cosine_ops`). Применена и проверена на Neon.
+## ⏭️ Текущее — ветка `phase-4-chat` (чат с памятью = главный экран)
+**Решение по LLM (на основе железа: нет GPU, ~2ГБ free RAM):** гибрид — **Groq** (бесплатный ключ, по умолчанию) + локальный **Ollama** опцией. Эмбеддинги остаются локально. **Gemini не используем** (на free-tier тренируется на данных). Извлечение фактов — тоже через Groq, отдельный Gemini не нужен.
+Сделано на ветке (#7):
+- [x] Config: `LLM_PROVIDER` (groq|ollama), `GROQ_API_KEY`, `GROQ_MODEL=llama-3.3-70b-versatile`, `OLLAMA_CHAT_MODEL=llama3.2:3b`.
+- [x] `app/llm.py`: `stream_chat(messages)` — стриминг токенов через Groq (OpenAI-совместимый, SSE) или Ollama `/api/chat`. Импорт проверен.
+Осталось (#8–#11): `POST /chat` (RAG+SSE) → хранить чаты как `source=pam` → чат-UI на главной → `/security-review`+тест+мерж.
+**⛔ Блок:** нужен бесплатный **GROQ_API_KEY** от пользователя (console.groq.com → API Keys) в `backend/.env`. Без него чат на Groq не запустится (можно временно `LLM_PROVIDER=ollama`, но локальная чат-модель на этом ПК слабая/медленная).
 
-Phase 2 прогресс (трекаю в таск-листе):
+---
+### Phase 2 (RAG) — ЗАВЕРШЕНА, в `main`:
 - [x] **Чанкование** (`indexing.py::chunk_text`, ~1000 симв по абзацам) — создаётся при ingest + backfill `create_missing_chunks`.
 - [x] **Эмбеддинг-воркер**: `embed_text` → Ollama `/api/embeddings`; `embed_pending` пишет вектор. Фоновый цикл в `main.py` lifespan (каждые 15с, устойчив к падению Ollama) + ручной `POST /index/run`.
 - [x] **`GET /search/semantic`**: эмбеддит запрос → `Chunk.embedding.cosine_distance` (`<=>`) → топ-N. **Проверено: запрос «рецепт домашнего хлеба» → топ «Хлеб» 0.81 (по смыслу).**

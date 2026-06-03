@@ -14,6 +14,12 @@ class Settings(BaseSettings):
     OLLAMA_URL: str = "http://localhost:11434"
     EMBED_MODEL: str = "nomic-embed-text"
 
+    # Phase 4 — chat LLM (provider-agnostic). "groq" (cloud, free) | "ollama" (local).
+    LLM_PROVIDER: str = "groq"
+    GROQ_API_KEY: str = ""
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    OLLAMA_CHAT_MODEL: str = "llama3.2:3b"
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
