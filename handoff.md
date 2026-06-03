@@ -47,6 +47,10 @@
 
 **Дальше:** `/security-review` по `phase-5-lecturer` → мерж в `main`. Sample-материалы оставлены в Neon (httpbin/pdf/rfc793) для тестов курса.
 
+**Добавлено в той же сессии:**
+- **Security-review Phase 5 — чисто**, `phase-5-lecturer` смержена в `main` (`6453961`, запушено).
+- **YouTube-транскрипт** (ветка `phase-5-youtube`): третий источник лектора. `youtube-transcript-api` (1.2.4, instance API: `.list().find_transcript([...]).fetch()`), sync-fetch в потоке (`asyncio.to_thread`), заголовок через oEmbed. POST `/learn/youtube`; UI авто-детект (`isYoutubeUrl`). Проверено вживую (Rick Astley → транскрипт+заголовок→курс по песне). Инлайн-секьюрити: фиксированный хост (нет SSRF), defusedxml (нет XXE), video_id 11 симв валидируется. → мержить в `main`.
+
 ---
 
 ## 📍 Текущее состояние (на 2026-06-03)
