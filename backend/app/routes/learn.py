@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..content import ingest_article, ingest_pdf
+from ..content import ingest_article, ingest_pdf, ingest_youtube
 from ..courses import generate_course
 from ..db import get_session
 from ..models import ContentSource, Course
@@ -39,6 +39,20 @@ async def add_article(
     src = await ingest_article(session, url)
     if src.status == "failed":
         raise HTTPException(status_code=422, detail=src.error or "extraction failed")
+    return src
+
+
+@router.post("/youtube", response_model=ContentSourceOut)
+async def add_youtube(
+    payload: IngestArticleIn,
+    session: AsyncSession = Depends(get_session),
+) -> ContentSource:
+    url = payload.url.strip()
+    if not (url.startswith("http://") or url.startswith("https://")):
+        raise HTTPException(status_code=400, detail="url must be http(s)")
+    src = await ingest_youtube(session, url)
+    if src.status == "failed":
+        raise HTTPException(status_code=422, detail=src.error or "transcript failed")
     return src
 
 

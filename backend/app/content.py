@@ -13,11 +13,12 @@ mirroring the anti-injection handling of chat <context>.
 """
 from __future__ import annotations
 
+import asyncio
 import io
 import ipaddress
 import logging
 import socket
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -114,6 +115,73 @@ def pdf_to_text(data: bytes) -> str:
     reader = PdfReader(io.BytesIO(data))
     pages = [(page.extract_text() or "").strip() for page in reader.pages]
     return "\n\n".join(p for p in pages if p).strip()
+
+
+def youtube_video_id(url: str) -> str | None:
+    """Extract the 11-char video id from common YouTube URL shapes."""
+    u = urlparse(url.strip())
+    host = (u.hostname or "").lower().removeprefix("www.")
+    if host in ("youtu.be",):
+        vid = u.path.lstrip("/").split("/")[0]
+    elif host in ("youtube.com", "m.youtube.com", "music.youtube.com"):
+        if u.path == "/watch":
+            vid = (parse_qs(u.query).get("v") or [""])[0]
+        elif u.path.startswith(("/shorts/", "/embed/", "/v/", "/live/")):
+            vid = u.path.split("/")[2]
+        else:
+            vid = ""
+    else:
+        return None
+    vid = vid.strip()
+    return vid if len(vid) == 11 else None
+
+
+def _extract_youtube_sync(video_id: str) -> str:
+    """Fetch a transcript (sync; runs in a thread). Prefers ru/en, else any."""
+    from youtube_transcript_api import NoTranscriptFound, YouTubeTranscriptApi
+
+    api = YouTubeTranscriptApi()
+    tlist = api.list(video_id)
+    try:
+        transcript = tlist.find_transcript(["ru", "en"])
+    except NoTranscriptFound:
+        transcript = next(iter(tlist))  # first available language
+    fetched = transcript.fetch()
+    return "\n".join(s.text for s in fetched if getattr(s, "text", "").strip()).strip()
+
+
+async def _youtube_title(video_id: str) -> str | None:
+    """Best-effort video title via YouTube's public oEmbed (fixed host, no SSRF)."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0, headers=_FETCH_HEADERS) as client:
+            r = await client.get(
+                "https://www.youtube.com/oembed",
+                params={"url": f"https://www.youtube.com/watch?v={video_id}", "format": "json"},
+            )
+            r.raise_for_status()
+            return r.json().get("title")
+    except Exception:  # noqa: BLE001 — title is optional
+        return None
+
+
+async def ingest_youtube(session: AsyncSession, url: str) -> ContentSource:
+    """Fetch a YouTube transcript into a ContentSource."""
+    src = ContentSource(kind="youtube", url=url, status="pending")
+    session.add(src)
+    await session.flush()
+    video_id = youtube_video_id(url)
+    if not video_id:
+        await _fail(session, src, "not a recognizable YouTube video URL")
+        await session.commit()
+        return src
+    try:
+        text = await asyncio.to_thread(_extract_youtube_sync, video_id)
+        title = await _youtube_title(video_id) or f"YouTube {video_id}"
+        await _finalize(session, src, title=title, text=text)
+    except Exception as e:  # noqa: BLE001
+        await _fail(session, src, f"youtube transcript failed: {type(e).__name__}: {e}")
+    await session.commit()
+    return src
 
 
 async def ingest_article(session: AsyncSession, url: str) -> ContentSource:
