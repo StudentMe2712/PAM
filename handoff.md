@@ -147,6 +147,16 @@
 - Замечание по портам: `--reload` backend плодит дочерний процесс, чья cmdline НЕ матчит `*uvicorn*app.main*` → `stop-dev.bat`/kill по имени может не добить его; надёжнее kill по владельцу порта. (На будущее.)
 - Всё на ветке `saved-messages`. Дальше: мерж в main + Phase 2 RAG (нужен Ollama).
 
+### 2026-06-03 — Сессия: Ollama настроена + старт Phase 2 (таблица chunks)
+- Пользователь установил Ollama. Пояснил: GUI-чат не нужен (закрыть); важна служба на :11434 (работает, `HTTP 200`). `ollama` НЕ в PATH git-bash → работаю через HTTP API.
+- **Модель скачал сам через API**: `POST :11434/api/pull {"model":"nomic-embed-text"}` → success. Проверил `POST :11434/api/embeddings` → **dim=768**, кириллица ок. Под `vector(768)` в плане.
+- **Старт Phase 2** (путь A — Ollama готова). Ветка **`phase-2-rag`**.
+  - `pgvector` 0.4.2 в venv + добавлен в `backend/pyproject.toml`.
+  - Модель `Chunk` (`backend/app/models.py`): message_id FK CASCADE, content, position, `embedding Vector(768)`, created_at.
+  - Миграция `2ec708645017` (autogenerate + ручная правка): **добавил `from pgvector.sqlalchemy import Vector`** (autogen забыл импорт, упало бы NameError) и **HNSW-индекс** `CREATE INDEX ... USING hnsw (embedding vector_cosine_ops)`. Применена на Neon, проверено: таблица + 3 индекса (pkey, ix_chunks_message, ix_chunks_embedding_hnsw).
+- **Дальше по Phase 2** (см. STATE): чанкование → эмбеддинг-воркер (Ollama) → `/search/semantic` + гибрид (RRF) → UI-переключатель → тесты → мерж.
+- Запрос эмбеддинга для воркера: `POST http://localhost:11434/api/embeddings` body `{"model":"nomic-embed-text","prompt":"<text>"}` → `{"embedding":[...768...]}`.
+
 **Как поднять backend локально (без Docker):**
 ```bash
 cd backend
