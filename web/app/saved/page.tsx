@@ -6,18 +6,21 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
 import { listSaved, deleteSaved, type SavedMessage } from "../../lib/api"
+import RefreshButton from "../refresh-button"
 
 export default function SavedPage() {
   const [items, setItems] = useState<SavedMessage[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [tick, setTick] = useState(0)
 
   useEffect(() => {
+    setLoading(true)
     listSaved()
       .then(setItems)
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false))
-  }, [])
+  }, [tick])
 
   async function remove(id: string) {
     try {
@@ -34,7 +37,10 @@ export default function SavedPage() {
         <div className="text-xs uppercase tracking-widest text-lime-400 mb-2">
           /// избранное
         </div>
-        <h1 className="text-3xl font-semibold">Избранное</h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-3xl font-semibold">Избранное</h1>
+          <RefreshButton onClick={() => setTick((t) => t + 1)} busy={loading} />
+        </div>
         <p className="text-neutral-400 mt-2 text-sm font-sans">
           Сообщения, которые ты отметил ★ — снимки, которые не теряются при
           повторном захвате разговора.

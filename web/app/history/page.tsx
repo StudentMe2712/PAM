@@ -9,6 +9,7 @@ import {
   type ConversationSummary,
   type SearchHit
 } from "../../lib/api"
+import RefreshButton from "../refresh-button"
 
 type SourceFilter = "" | "chatgpt" | "claude" | "gemini"
 
@@ -19,15 +20,16 @@ export default function HistoryPage() {
   const [source, setSource] = useState<SourceFilter>("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [tick, setTick] = useState(0)
 
-  // initial list
+  // initial list + manual refresh (tick)
   useEffect(() => {
     setLoading(true)
     listConversations({ source: source || undefined })
       .then(setConversations)
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false))
-  }, [source])
+  }, [source, tick])
 
   // search (debounced)
   useEffect(() => {
@@ -73,6 +75,7 @@ export default function HistoryPage() {
           <option value="claude">Claude</option>
           <option value="gemini">Gemini</option>
         </select>
+        <RefreshButton onClick={() => setTick((t) => t + 1)} busy={loading} />
       </div>
 
       {error && (
