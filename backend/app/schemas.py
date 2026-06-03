@@ -114,3 +114,22 @@ class ProfileFactOut(BaseModel):
     source_excerpt: str | None
     confidence: float
     created_at: datetime
+
+
+# ---- Learning content (Phase 5 — личный лектор) ----
+
+class ContentSourceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    kind: str
+    title: str | None
+    url: str | None
+    status: str
+    char_count: int
+    error: str | None
+    created_at: datetime
+
+
+class IngestArticleIn(BaseModel):
+    url: str

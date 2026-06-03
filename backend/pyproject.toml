@@ -14,6 +14,8 @@ dependencies = [
     "python-multipart",
     "pgvector>=0.3",
     "httpx>=0.27",
+    "beautifulsoup4>=4.12",
+    "pypdf>=4.0",
 ]
 
 [tool.setuptools]

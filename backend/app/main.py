@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
+from .content import embed_pending_content
 from .db import AsyncSessionLocal
 from .indexing import index_pending
 from .routes import (
@@ -17,6 +18,7 @@ from .routes import (
     conversations,
     facts,
     indexing as index_routes,
+    learn,
     saved,
     search,
 )
@@ -41,6 +43,10 @@ async def _embed_worker() -> None:
                 result = await index_pending(session)
                 if result["embedded"] or result["chunks_created"]:
                     _worker_log.info("indexed %s", result)
+                # Phase 5: embed pending learning-content chunks on the same tick.
+                content_embedded = await embed_pending_content(session)
+                if content_embedded:
+                    _worker_log.info("indexed content chunks: %s", content_embedded)
         except Exception as e:  # noqa: BLE001 — worker must never die
             _worker_log.warning("embed worker tick failed: %s", e)
         await asyncio.sleep(15)
@@ -93,6 +99,7 @@ app.include_router(search.router)
 app.include_router(index_routes.router)
 app.include_router(chat.router)
 app.include_router(facts.router)
+app.include_router(learn.router)
 
 
 @app.get("/")
