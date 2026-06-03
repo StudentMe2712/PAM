@@ -14,7 +14,10 @@ mirroring the anti-injection handling of chat <context>.
 from __future__ import annotations
 
 import io
+import ipaddress
 import logging
+import socket
+from urllib.parse import urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -25,6 +28,35 @@ from .indexing import chunk_text, embed_text
 from .models import ContentChunk, ContentSource
 
 log = logging.getLogger(__name__)
+
+
+def _assert_public_url(url: str) -> None:
+    """SSRF guard: only allow http(s) to a public host.
+
+    Resolves the host and rejects loopback / private / link-local / reserved
+    addresses so a user-supplied URL can't be used to reach internal services
+    (defense-in-depth — the backend is local-first/single-user today, but this
+    keeps article ingest safe if the API is ever exposed).
+    """
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise ValueError("url must be http(s) with a host")
+    host = parsed.hostname
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror as e:
+        raise ValueError(f"cannot resolve host: {e}")
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
+            or ip.is_multicast
+            or ip.is_unspecified
+        ):
+            raise ValueError("url resolves to a non-public address")
 
 MAX_TEXT_CHARS = 200_000  # safety cap on stored extracted text
 # Browser-like headers — some sites (e.g. Wikipedia) 403 minimal/bot user agents.
@@ -59,13 +91,20 @@ def html_to_text(html: str) -> tuple[str | None, str]:
     return title, text
 
 
-async def _extract_article(url: str) -> tuple[str | None, str]:
+async def _extract_article(url: str, max_redirects: int = 5) -> tuple[str | None, str]:
+    """Fetch an article, following redirects manually so every hop is SSRF-checked."""
     async with httpx.AsyncClient(
-        timeout=30.0, follow_redirects=True, headers=_FETCH_HEADERS
+        timeout=30.0, follow_redirects=False, headers=_FETCH_HEADERS
     ) as client:
-        r = await client.get(url)
-        r.raise_for_status()
-        return html_to_text(r.text)
+        for _ in range(max_redirects + 1):
+            _assert_public_url(url)  # validate BEFORE each request (incl. redirects)
+            r = await client.get(url)
+            if r.is_redirect and r.has_redirect_location:
+                url = str(r.next_request.url)  # validated on next loop iteration
+                continue
+            r.raise_for_status()
+            return html_to_text(r.text)
+    raise ValueError("too many redirects")
 
 
 def pdf_to_text(data: bytes) -> str:
