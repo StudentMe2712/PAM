@@ -62,15 +62,22 @@ export async function getConversation(id: string): Promise<ConversationDetail> {
   return r.json()
 }
 
+export type SearchMode = "text" | "semantic" | "hybrid"
+
 export async function search(
   q: string,
-  source?: string
+  source?: string,
+  mode: SearchMode = "text"
 ): Promise<SearchHit[]> {
+  const path =
+    mode === "semantic"
+      ? "/search/semantic"
+      : mode === "hybrid"
+        ? "/search/hybrid"
+        : "/search"
   const params = new URLSearchParams({ q })
   if (source) params.set("source", source)
-  const r = await fetch(`${BACKEND_URL}/search?${params}`, {
-    cache: "no-store"
-  })
+  const r = await fetch(`${BACKEND_URL}${path}?${params}`, { cache: "no-store" })
   if (!r.ok) throw new Error(`search failed: ${r.status}`)
   return r.json()
 }

@@ -7,7 +7,8 @@ import {
   listConversations,
   search,
   type ConversationSummary,
-  type SearchHit
+  type SearchHit,
+  type SearchMode
 } from "../../lib/api"
 import RefreshButton from "../refresh-button"
 
@@ -18,6 +19,7 @@ export default function HistoryPage() {
   const [hits, setHits] = useState<SearchHit[]>([])
   const [query, setQuery] = useState("")
   const [source, setSource] = useState<SourceFilter>("")
+  const [mode, setMode] = useState<SearchMode>("text")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
@@ -38,12 +40,12 @@ export default function HistoryPage() {
       return
     }
     const t = setTimeout(() => {
-      search(query.trim(), source || undefined)
+      search(query.trim(), source || undefined, mode)
         .then(setHits)
         .catch((e) => setError(String(e)))
     }, 300)
     return () => clearTimeout(t)
-  }, [query, source])
+  }, [query, source, mode])
 
   return (
     <main>
@@ -74,6 +76,15 @@ export default function HistoryPage() {
           <option value="chatgpt">ChatGPT</option>
           <option value="claude">Claude</option>
           <option value="gemini">Gemini</option>
+        </select>
+        <select
+          value={mode}
+          onChange={(e) => setMode(e.target.value as SearchMode)}
+          title="Режим поиска"
+          className="bg-neutral-900 border border-neutral-800 rounded-sm px-3 py-2 text-sm">
+          <option value="text">по словам</option>
+          <option value="semantic">по смыслу</option>
+          <option value="hybrid">гибрид</option>
         </select>
         <RefreshButton onClick={() => setTick((t) => t + 1)} busy={loading} />
       </div>
