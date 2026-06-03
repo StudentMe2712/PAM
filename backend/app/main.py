@@ -15,6 +15,7 @@ from .indexing import index_pending
 from .routes import (
     chat,
     conversations,
+    facts,
     indexing as index_routes,
     saved,
     search,
@@ -91,6 +92,7 @@ app.include_router(saved.router)
 app.include_router(search.router)
 app.include_router(index_routes.router)
 app.include_router(chat.router)
+app.include_router(facts.router)
 
 
 @app.get("/")

@@ -25,11 +25,13 @@
 
 ## ⏭️ Текущее — ветка `phase-3-memory` (память/факты)
 **Решения:** приоритет = Phase 3 (память обо мне). GUI — пользователь генерит на **v0.dev по промпту** (промпт выдан), потом интегрирую. «Обучение модели» НЕ делаем — память = RAG + факты + персона-промпт (уже улучшен под сети/сисадмин/1С).
-- [x] #12 Таблица `profile_facts` (category, content, source_conversation_id FK SET NULL, source_excerpt, confidence, created_at), миграция `4b747af609d8` на Neon. (Autogenerate пытался дропнуть HNSW-индекс chunks — убрал из миграции вручную.)
-- [ ] #13 Извлечение фактов: `llm.complete(json)` + `extraction.py` (разговор → строгий JSON только о ПОЛЬЗОВАТЕЛЕ, anti-injection, source_excerpt) + `POST /facts/extract`.
-- [ ] #14 Факты в контекст чата + `GET/DELETE /facts`.
-- [ ] #15 UI `/me` (профиль фактов: список/правка/удаление + «обновить профиль»).
+- [x] #12 Таблица `profile_facts` + миграция `4b747af609d8` на Neon.
+- [~] #13 **КОД ГОТОВ, НЕ ПРОТЕСТИРОВАН** (тест прерван пользователем): `llm.complete(json_mode)` (Groq/Ollama не-стрим) + `extraction.py` (`extract_facts_for_conversation`/`extract_pending`: строгий JSON только о ПОЛЬЗОВАТЕЛЕ; anti-injection — текст в `<conversation>` = данные; hallucination-guard — факт без `source_excerpt` отбрасывается; дедуп по `content`) + `routes/facts.py` (`POST /facts/extract`, `GET /facts`, `DELETE /facts/{id}`). Импорт OK, маршруты зарегистрированы. **НЕ запускали extract — нужно протестировать.**
+- [~] #14 Частично: `/facts` API готов (extract/list/delete). Осталось: **подмешать факты в контекст чата** в `routes/chat.py` (добавить блок профиля в промпт перед `<context>`).
+- [ ] #15 UI `/me` (профиль фактов: список по категориям, удаление, кнопка «обновить профиль» = POST /facts/extract). Вкладка в nav.
 - [ ] #16 `/security-review` + тест + мерж.
+
+**▶ ПЕРВЫЙ ШАГ В НОВОЙ СЕССИИ:** поднять backend (`dev.bat` или uvicorn на :8000 — он перезапустится с новым кодом) и протестировать извлечение: `POST /facts/extract?limit=10` → `GET /facts`. Тест через **python/urllib или curl** (у /facts/extract нет тела, кириллица в body не мешает). Проверить: факты только о пользователе, у каждого есть `source_excerpt`, нет мусора. Если ок — доделать #14 (факты в чат) → #15 (/me) → #16.
 
 **Параллельно (пользователь):** генерит чат-GUI на v0.dev по выданному промпту → пришлёт код/скриншот → интегрирую.
 Бэклог: авто-«популярное»/mindmap (Phase 2 готов); вложения файлов/картинок (vision-модель Groq); убрать `pam`-чаты из «Истории». Фоновые: `contents/gemini.ts`; Docker — по слову.

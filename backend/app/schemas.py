@@ -100,3 +100,17 @@ class SavedMessageOut(BaseModel):
     position: int | None
     note: str | None
     created_at: datetime
+
+
+# ---- Profile facts (Phase 3 memory) ----
+
+class ProfileFactOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    category: str
+    content: str
+    source_conversation_id: uuid.UUID | None
+    source_excerpt: str | None
+    confidence: float
+    created_at: datetime

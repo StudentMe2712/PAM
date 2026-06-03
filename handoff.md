@@ -203,6 +203,15 @@
 - **`v0dev/`** закоммичен — сгенерированный на v0.dev макет чат-GUI (исходники `components/pam/*` + shadcn ui). Не подключён; интеграция — отдельный шаг.
 - Активная ветка для продолжения: **`phase-3-memory`** (после клона: `git checkout phase-3-memory`). Здесь же — самый свежий STATE/handoff.
 
+### 2026-06-03 — Сессия: Phase 3 #13 (код извлечения фактов, НЕ протестирован)
+- Написан код извлечения фактов (ветка `phase-3-memory`), но **тест прерван пользователем** — extract не запускали.
+  - `llm.py`: добавлен `complete(messages, json_mode)` — не-стриминговый вызов (Groq `response_format=json_object` / Ollama `format=json`).
+  - `extraction.py`: `extract_facts_for_conversation` + `extract_pending(limit_convs)`. Строгий JSON `{"facts":[{category,content,confidence,source_excerpt}]}`. **Guards:** anti-injection (текст разговора в `<conversation>` = данные, не команды), hallucination (факт без `source_excerpt` отбрасывается), дедуп по `content` (lowercase). Обрабатывает разговоры без фактов (idempotent-ish).
+  - `routes/facts.py`: `POST /facts/extract?limit=N`, `GET /facts`, `DELETE /facts/{id}`. Зарегистрирован в `main.py`. Схема `ProfileFactOut` в `schemas.py`.
+  - Импорт-чек OK (маршруты `/facts`, `/facts/extract`, `/facts/{fact_id}`).
+- **СЛЕДУЮЩИЙ ШАГ:** поднять backend, `POST /facts/extract?limit=10` → `GET /facts`, проверить качество фактов (только о пользователе, с цитатами). Затем #14 — подмешать профиль фактов в промпт чата (`routes/chat.py`), #15 — UI `/me`, #16 — security-review+мерж.
+- Замечание: тестировать /facts можно curl'ом (нет тела запроса → проблема кириллицы в body не возникает).
+
 **Как поднять backend локально (без Docker):**
 ```bash
 cd backend
