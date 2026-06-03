@@ -130,3 +130,59 @@ export async function deleteSaved(id: string): Promise<void> {
   const r = await fetch(`${BACKEND_URL}/saved/${id}`, { method: "DELETE" })
   if (!r.ok && r.status !== 204) throw new Error(`delete saved failed: ${r.status}`)
 }
+
+// ---- Chat (Phase 4) ----
+
+export interface SourceRef {
+  source: string
+  title: string | null
+}
+
+export interface ChatHandlers {
+  onSources?: (s: SourceRef[]) => void
+  onToken?: (t: string) => void
+  onDone?: (conversationId: string | null) => void
+  onError?: (e: string) => void
+}
+
+/** POST /chat and consume the SSE stream (data: {...}\n\n). */
+export async function streamChat(
+  message: string,
+  conversationId: string | null,
+  h: ChatHandlers,
+  signal?: AbortSignal
+): Promise<void> {
+  const r = await fetch(`${BACKEND_URL}/chat`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ message, conversation_id: conversationId }),
+    signal
+  })
+  if (!r.ok || !r.body) {
+    h.onError?.(`chat failed: ${r.status}`)
+    return
+  }
+  const reader = r.body.getReader()
+  const dec = new TextDecoder()
+  let buf = ""
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buf += dec.decode(value, { stream: true })
+    const parts = buf.split("\n\n")
+    buf = parts.pop() || ""
+    for (const part of parts) {
+      const line = part.trim()
+      if (!line.startsWith("data:")) continue
+      try {
+        const obj = JSON.parse(line.slice(5).trim())
+        if (obj.sources) h.onSources?.(obj.sources)
+        if (obj.token) h.onToken?.(obj.token)
+        if (obj.error) h.onError?.(obj.error)
+        if (obj.done) h.onDone?.(obj.conversation_id ?? null)
+      } catch {
+        /* ignore partial/non-JSON */
+      }
+    }
+  }
+}

@@ -19,11 +19,13 @@
 
 ## ⏭️ Текущее — ветка `phase-4-chat` (чат с памятью = главный экран)
 **Решение по LLM (на основе железа: нет GPU, ~2ГБ free RAM):** гибрид — **Groq** (бесплатный ключ, по умолчанию) + локальный **Ollama** опцией. Эмбеддинги остаются локально. **Gemini не используем** (на free-tier тренируется на данных). Извлечение фактов — тоже через Groq, отдельный Gemini не нужен.
-Сделано на ветке (#7):
-- [x] Config: `LLM_PROVIDER` (groq|ollama), `GROQ_API_KEY`, `GROQ_MODEL=llama-3.3-70b-versatile`, `OLLAMA_CHAT_MODEL=llama3.2:3b`.
-- [x] `app/llm.py`: `stream_chat(messages)` — стриминг токенов через Groq (OpenAI-совместимый, SSE) или Ollama `/api/chat`. Импорт проверен.
-Осталось (#8–#11): `POST /chat` (RAG+SSE) → хранить чаты как `source=pam` → чат-UI на главной → `/security-review`+тест+мерж.
-**⛔ Блок:** нужен бесплатный **GROQ_API_KEY** от пользователя (console.groq.com → API Keys) в `backend/.env`. Без него чат на Groq не запустится (можно временно `LLM_PROVIDER=ollama`, но локальная чат-модель на этом ПК слабая/медленная).
+Сделано на ветке:
+- [x] #7 Config (`LLM_PROVIDER`, `GROQ_API_KEY`, `GROQ_MODEL=llama-3.3-70b-versatile`, `OLLAMA_CHAT_MODEL=llama3.2:3b`) + `app/llm.py` (`stream_chat` → Groq SSE / Ollama).
+- [x] #8 `POST /chat`: RAG-ретрив (топ-6 чанков, косинус) + system-промпт с anti-injection (контекст в `<context>` = данные, не команды) + SSE-стрим. Маршрут зарегистрирован, импорт-чек ок.
+- [x] #9 Хранение: чат пишется в `Conversation(source='pam')` (+ chunks → воркер эмбеддит → чат становится памятью). Мультитёрн по `conversation_id`.
+- [x] #10 Чат-UI на главной `/` (`app/page.tsx`): сообщения, стриминг (fetch+ReadableStream SSE), сайдбар чатов, markdown, чипы «память: источники». Nav: «Чат» — активная вкладка. Web build зелёный.
+- [ ] #11 `/security-review` (prompt-injection) + e2e-тест с ключом Groq + мерж в `main`.
+**⛔ Блок на #11:** нужен бесплатный **GROQ_API_KEY** (console.groq.com → API Keys) в `backend/.env` (строкой `GROQ_API_KEY=gsk_...`). Тогда: перезапустить backend, открыть `/`, проверить чат → прогнать security-review → мерж. (Без ключа можно временно `LLM_PROVIDER=ollama`, но нужна локальная чат-модель `ollama pull llama3.2:3b`, на этом ПК медленно/слабее.)
 
 ---
 ### Phase 2 (RAG) — ЗАВЕРШЕНА, в `main`:

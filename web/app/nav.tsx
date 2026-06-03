@@ -6,6 +6,7 @@ import type { ReactNode } from "react"
 
 export default function Nav() {
   const pathname = usePathname() || "/"
+  const onChat = pathname === "/"
   const onHistory = pathname === "/history" || pathname.startsWith("/c/")
   const onSaved = pathname === "/saved"
 
@@ -21,7 +22,9 @@ export default function Nav() {
         </Link>
 
         <nav className="flex items-center gap-1 text-xs">
-          <Soon label="Чат" />
+          <Tab href="/" active={onChat}>
+            Чат
+          </Tab>
           <Tab href="/history" active={onHistory}>
             История
           </Tab>

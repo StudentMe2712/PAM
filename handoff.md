@@ -181,7 +181,9 @@
 - **Решение:** гибрид — Groq по умолчанию + Ollama опцией (провайдер-агностичный код). Gemini не нужен (факты тоже через Groq).
 - **Сделано (#7):** `config.py` (+`LLM_PROVIDER`, `GROQ_API_KEY`, `GROQ_MODEL=llama-3.3-70b-versatile`, `OLLAMA_CHAT_MODEL=llama3.2:3b`); `app/llm.py` (`stream_chat` → Groq SSE / Ollama `/api/chat`). Импорт проверен.
 - **Задачи #8–#11** (pending): `POST /chat` (RAG-ретрив + system-промпт с anti-injection + SSE), хранить чаты как `Conversation(source='pam')` (→ чанкуются/эмбеддятся = память), чат-UI на главной, `/security-review`+тест+мерж.
-- **⛔ Ждём от пользователя:** бесплатный `GROQ_API_KEY` (console.groq.com) в `backend/.env`. Ветка `phase-4-chat`.
+- **Сделано #7–#10:** `llm.py` (Groq/Ollama стриминг); `POST /chat` (`routes/chat.py`: RAG топ-6 + anti-injection system-промпт + SSE + персист в `Conversation(source='pam')`, мультитёрн); чат-UI на `/` (`app/page.tsx`: стриминг через fetch+ReadableStream, сайдбар, markdown, чипы памяти); nav «Чат» активна. Backend импорт-чек ок (`/chat` в роутах), web build зелёный.
+- **Осталось #11 (блок на ключ):** `/security-review` + e2e-тест чата + мерж. **Ждём `GROQ_API_KEY`** (console.groq.com) в `backend/.env`. Без ключа: `LLM_PROVIDER=ollama` + `ollama pull llama3.2:3b` (медленно на этом ПК).
+- Ветка `phase-4-chat` (НЕ мержена). Заметка: PAM-чаты сохраняются как `source=pam` → попадают в `chunks`/эмбеддинги и в список «История» (можно позже отфильтровать pam из Истории).
 
 **Как поднять backend локально (без Docker):**
 ```bash
