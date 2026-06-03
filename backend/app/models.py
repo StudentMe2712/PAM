@@ -18,6 +18,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from pgvector.sqlalchemy import Vector
 
 
 class Base(DeclarativeBase):
@@ -116,3 +117,32 @@ class SavedMessage(Base):
     )
 
     __table_args__ = (Index("ix_saved_messages_created", "created_at"),)
+
+
+class Chunk(Base):
+    """A chunk of a message + its embedding (Phase 2 RAG).
+
+    Messages are split into chunks; each chunk gets a 768-dim embedding from the
+    local Ollama model `nomic-embed-text`. Used for semantic / hybrid search.
+    Wiped with its message (CASCADE) — re-embedded after re-ingest.
+    """
+
+    __tablename__ = "chunks"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    message_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("messages.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # NULL until the background worker embeds it.
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(768), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    __table_args__ = (Index("ix_chunks_message", "message_id"),)

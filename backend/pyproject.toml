@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.6",
     "pydantic-settings>=2.1",
     "python-multipart",
+    "pgvector>=0.3",
 ]
 
 [tool.setuptools]
