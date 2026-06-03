@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy import (
     JSON,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -146,3 +147,32 @@ class Chunk(Base):
     )
 
     __table_args__ = (Index("ix_chunks_message", "message_id"),)
+
+
+class ProfileFact(Base):
+    """A durable fact about the USER, extracted from conversations (Phase 3).
+
+    Hallucination guard: each fact keeps a traceable source — `source_excerpt`
+    (snapshot of the supporting text, survives re-ingest) and best-effort
+    `source_conversation_id` (SET NULL if the conversation is deleted).
+    """
+
+    __tablename__ = "profile_facts"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    category: Mapped[str] = mapped_column(String(64), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    source_conversation_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    source_excerpt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    __table_args__ = (Index("ix_profile_facts_category", "category"),)

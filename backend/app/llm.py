@@ -56,6 +56,37 @@ async def _stream_groq(messages: list[dict]) -> AsyncIterator[str]:
                     yield delta
 
 
+async def complete(messages: list[dict], json_mode: bool = False) -> str:
+    """Non-streaming completion (used for fact extraction). Returns full text."""
+    provider = settings.LLM_PROVIDER.lower()
+    if provider == "ollama":
+        return await _complete_ollama(messages, json_mode)
+    return await _complete_groq(messages, json_mode)
+
+
+async def _complete_groq(messages: list[dict], json_mode: bool) -> str:
+    if not settings.GROQ_API_KEY:
+        raise RuntimeError("GROQ_API_KEY не задан (или переключи LLM_PROVIDER=ollama).")
+    payload: dict = {"model": settings.GROQ_MODEL, "messages": messages, "stream": False}
+    if json_mode:
+        payload["response_format"] = {"type": "json_object"}
+    headers = {"Authorization": f"Bearer {settings.GROQ_API_KEY}"}
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        r = await client.post(GROQ_URL, headers=headers, json=payload)
+        r.raise_for_status()
+        return r.json()["choices"][0]["message"]["content"]
+
+
+async def _complete_ollama(messages: list[dict], json_mode: bool) -> str:
+    payload: dict = {"model": settings.OLLAMA_CHAT_MODEL, "messages": messages, "stream": False}
+    if json_mode:
+        payload["format"] = "json"
+    async with httpx.AsyncClient(timeout=300.0) as client:
+        r = await client.post(f"{settings.OLLAMA_URL}/api/chat", json=payload)
+        r.raise_for_status()
+        return r.json()["message"]["content"]
+
+
 async def _stream_ollama(messages: list[dict]) -> AsyncIterator[str]:
     payload = {"model": settings.OLLAMA_CHAT_MODEL, "messages": messages, "stream": True}
     async with httpx.AsyncClient(timeout=300.0) as client:

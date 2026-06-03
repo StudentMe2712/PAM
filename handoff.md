@@ -16,6 +16,22 @@
 
 ---
 
+## 🗓️ Сессия 2026-06-03 (вечер) — Phase 3 завершена → старт Phase 5
+
+**Сделано:**
+- **#13 протестировано вживую.** Поднял backend локально (`.venv` uvicorn :8000 против Neon). `POST /facts/extract?limit=10` → 8 разговоров → 18 фактов. Проверил `GET /facts`: все факты **только о пользователе** (Windows, 1С, MS SQL Server, SSMS, PowerShell, обслуживание баз 1С, сети/порты), у каждого есть `source_excerpt` (цитата) и `source_conversation_id` (traceable), дублей нет. Гварды (anti-injection / hallucination / дедуп) работают. Пара слабых over-inference фактов — не блокеры (низкая ценность, но traceable).
+- **#14 факты в чат** (`routes/chat.py`): `_profile_facts()` собирает топ-40 по confidence → блок `<profile>` перед `<context>`; system-prompt обновлён (использовать профиль, но не зачитывать вслух; тот же data-not-commands guard). Коммит `1a65935`. Проверено вживую: «какую ОС/СУБД/инструменты я использую?» → ответ построен только из фактов.
+- **#15 UI `/me`** («Память обо мне»): факты по категориям, confidence%, цитата, удаление (per-fact), кнопка «обновить профиль» (POST /facts/extract, limit=10). Вкладка «Профиль» в `nav.tsx`. API-клиент: `listFacts/deleteFact/extractFacts`. Web build зелёный. Коммит `f9c307a`.
+- **#16 `/security-review`** по диффу ветки — **чисто** (нет High/Medium): SQLi нет (ORM-параметризация + UUID-валидация пути), XSS нет (`/me` рендерит plain JSX, не `dangerouslySetInnerHTML`), ключ Groq не логируется. Отсутствие auth — by design (local-first), не ново.
+
+**Решения:**
+- Профиль в промпте = **данные**, не команды (анти-инъекция как у `<context>`); факты сортируются по confidence, лимит 40 — чтобы не раздувать промпт.
+- `/me` рендерит факты как текст (не markdown) — проще и безопаснее.
+
+**Дальше:** мерж `phase-3-memory` → `main`; затем **Phase 5 (Личный лектор)** на ветке `phase-5-lecturer` — начать со слоя ингеста контента (`content_sources` + парсеры статья/PDF, reuse чанкование Phase 2). См. `.planning/STATE.md`.
+
+---
+
 ## 📍 Текущее состояние (на 2026-06-03)
 
 **🔀 Видение (уточнено):** PAM = личный AI с долгой памятью. ОСНОВНОЕ: (1) **чат с памятью** (Phase 3+4, чат = главный экран), (2) **личный лектор** (Phase 5: PDF/YouTube/статья → курс+тесты). ДОПОЛНИТЕЛЬНОЕ: раздел **«Импорт истории»** (бывш. Phase 1: extension тянет разговоры). Детали — `ROADMAP.md` → «Продуктовое видение».
@@ -185,6 +201,41 @@
 - **Осталось #11 (блок на ключ):** `/security-review` + e2e-тест чата + мерж. **Ждём `GROQ_API_KEY`** (console.groq.com) в `backend/.env`. Без ключа: `LLM_PROVIDER=ollama` + `ollama pull llama3.2:3b` (медленно на этом ПК).
 - **#11 + МЕРЖ:** пользователь вписал `GROQ_API_KEY`. 404 на `/chat` был из-за старого backend на :8000 → перезапустил (убил все python: `--reload` плодит дочерний процесс, не матчащийся по cmdline — надёжно бить по порту/`Get-Process python`). **E2E с Groq: «Что я спрашивал про 1С?» → ответ по реальной истории**, стриминг, дедуп источников, чат сохранён. GUI допилен под ChatGPT/Claude (бабблы, аватар, typing-dots, авто-рост ввод). `/security-review` — чисто (инлайн; XSS нет — ReactMarkdown без raw; SQLi/SSRF нет; секреты ок). **`phase-4-chat` смержена в `main` (ff).**
 - **Phase 4 ЗАВЕРШЕНА.** Дальше по плану пользователя: авто-«популярное»/mindmap в «Импорте» (поверх эмбеддингов), затем Phase 3 (profile_facts через Groq). Заметка: curl на Windows бьёт кириллицу в body → тестировать чат через python/urllib (UTF-8), не curl.
+
+### 2026-06-03 — Сессия: чат-качество + старт Phase 3 (память)
+- **Уточнения пользователю:** «обучение модели» не нужно (fine-tune недоступен/дорог) → память = RAG + факты (Phase 3) + персона-промпт. Домены: сети/сисадмин/1С (для 1С нужна сильная модель — можно сменить Groq-модель). Вложения файлов/картинок — отдельный шаг (картинки → vision-модель Groq). Figma напрямую недоступен (нет Figma-MCP) → GUI через v0.dev по промпту.
+- **Сделано:** улучшен системный промпт чата (персона под сети/сисадмин/1С + типовые вопросы + игнор нерелевантной памяти), смержено в `main` (`e4836ec`). Выдан промпт для v0.dev (пользователь генерит GUI параллельно).
+- **Выбор пользователя:** следующий крупный кусок = **Phase 3 (память обо мне)**; GUI = v0.dev по промпту.
+- **Phase 3 #12 готов:** модель `ProfileFact` + миграция `4b747af609d8` (на Neon). Поймал баг autogenerate: он пытался дропнуть `ix_chunks_embedding_hnsw` (op.execute-индекс не виден autogenerate) — убрал лишние drop/create из миграции. HNSW цел.
+- **Осталось Phase 3 (#13–#16):** извлечение фактов (Groq JSON + guards) → факты в контекст чата + /facts API → UI /me → security-review+мерж. Ветка `phase-3-memory`.
+
+### 2026-06-03 — Сессия: подготовка к переустановке Windows
+- Пользователь вечером переставляет Windows. Аудит сохранности:
+  - **В git/GitHub:** весь код + миграции + доки + ветки. `main` (фазы 1–4), `phase-3-memory` (текущая, память). Всё запушено (`git push --all`).
+  - **НЕ в git (сохранить вручную!):** `backend/.env` (gitignored) — `DATABASE_URL` Neon + `GROQ_API_KEY`. Восстановимы и из дашбордов Neon/Groq.
+  - **В облаке:** все данные в Neon (разговоры/чанки/эмбеддинги/факты) — переживут переустановку.
+  - **Пересоздаётся:** `.venv`, `node_modules`, билды, модель Ollama (`ollama pull nomic-embed-text`).
+- Создан **`docs/SETUP.md`** — пошаговое восстановление с нуля. `.env.example` дополнен всеми текущими переменными (Ollama/Groq/LLM).
+- **`v0dev/`** закоммичен — сгенерированный на v0.dev макет чат-GUI (исходники `components/pam/*` + shadcn ui). Не подключён; интеграция — отдельный шаг.
+- Активная ветка для продолжения: **`phase-3-memory`** (после клона: `git checkout phase-3-memory`). Здесь же — самый свежий STATE/handoff.
+
+### 2026-06-03 — Сессия: Phase 3 #13 (код извлечения фактов, НЕ протестирован)
+- Написан код извлечения фактов (ветка `phase-3-memory`), но **тест прерван пользователем** — extract не запускали.
+  - `llm.py`: добавлен `complete(messages, json_mode)` — не-стриминговый вызов (Groq `response_format=json_object` / Ollama `format=json`).
+  - `extraction.py`: `extract_facts_for_conversation` + `extract_pending(limit_convs)`. Строгий JSON `{"facts":[{category,content,confidence,source_excerpt}]}`. **Guards:** anti-injection (текст разговора в `<conversation>` = данные, не команды), hallucination (факт без `source_excerpt` отбрасывается), дедуп по `content` (lowercase). Обрабатывает разговоры без фактов (idempotent-ish).
+  - `routes/facts.py`: `POST /facts/extract?limit=N`, `GET /facts`, `DELETE /facts/{id}`. Зарегистрирован в `main.py`. Схема `ProfileFactOut` в `schemas.py`.
+  - Импорт-чек OK (маршруты `/facts`, `/facts/extract`, `/facts/{fact_id}`).
+- **СЛЕДУЮЩИЙ ШАГ:** поднять backend, `POST /facts/extract?limit=10` → `GET /facts`, проверить качество фактов (только о пользователе, с цитатами). Затем #14 — подмешать профиль фактов в промпт чата (`routes/chat.py`), #15 — UI `/me`, #16 — security-review+мерж.
+- Замечание: тестировать /facts можно curl'ом (нет тела запроса → проблема кириллицы в body не возникает).
+
+### 2026-06-03 — Сессия: интеграция best-practice репо (выборочно)
+- Пользователь попросил «полностью интегрировать» https://github.com/shanraisshan/claude-code-best-practice. Изучил (клон во временную папку): это **репо-справочник про Claude Code** (концепты, сравнение воркфлоу GSD/Spec-Kit/Superpowers/RPI, cross-model, 83 tips) + **демо-`.claude/`** (weather/time/presentation агенты, звуковые хуки .mp3/.wav, settings с кастомным спиннером «Admiring Shayan», чужие permissions, .mcp.json с playwright/context7/deepwiki). 445 файлов, НЕ код приложения.
+- **Решение:** слепо копировать всё = засорить PAM. Интегрировал ВЫБОРОЧНО (ценность = знания/паттерны):
+  - **Создан `docs/claude-code-best-practices.md`** — выжимка применимых практик (R→P→E→R→S, контекст <40%, новая задача=новая сессия, субагенты для контекста, CLAUDE.md <200 строк, вертикальные срезы, grill-me, и т.д.) со ссылкой на источник.
+  - **Создан `.claude/commands/handoff.md`** — project-команда `/handoff` (кодифицирует наш ритуал: обновить STATE/handoff + git-чек + сводка + промпт).
+  - **НЕ копировал:** звуковые хуки, демо-агенты/скиллы, чужой settings.json/.mcp.json, презентации, changelog, Codex-конфиги (это обучающий материал, не ассеты проекта).
+- Временный клон удалён. Файлы — на ветке `phase-3-memory` (придут в main при мерже Phase 3).
+- **Полезный вывод на будущее:** там есть готовые воркфлоу (GSD `gsd-build/get-shit-done`, Superpowers, Spec-Kit) — если захотим формальный процесс-движок, можно поставить как плагин/marketplace отдельно.
 
 **Как поднять backend локально (без Docker):**
 ```bash

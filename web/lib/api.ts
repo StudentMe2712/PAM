@@ -131,6 +131,45 @@ export async function deleteSaved(id: string): Promise<void> {
   if (!r.ok && r.status !== 204) throw new Error(`delete saved failed: ${r.status}`)
 }
 
+// ---- Profile facts (Phase 3, "память обо мне") ----
+
+export interface ProfileFact {
+  id: string
+  category: string
+  content: string
+  source_conversation_id: string | null
+  source_excerpt: string | null
+  confidence: number
+  created_at: string
+}
+
+export async function listFacts(category?: string): Promise<ProfileFact[]> {
+  const params = new URLSearchParams()
+  if (category) params.set("category", category)
+  const r = await fetch(`${BACKEND_URL}/facts?${params}`, { cache: "no-store" })
+  if (!r.ok) throw new Error(`list facts failed: ${r.status}`)
+  return r.json()
+}
+
+export async function deleteFact(id: string): Promise<void> {
+  const r = await fetch(`${BACKEND_URL}/facts/${id}`, { method: "DELETE" })
+  if (!r.ok && r.status !== 204) throw new Error(`delete fact failed: ${r.status}`)
+}
+
+export interface ExtractResult {
+  conversations_processed: number
+  facts_added: number
+}
+
+/** POST /facts/extract — scan up to `limit` un-processed conversations for new facts. */
+export async function extractFacts(limit = 10): Promise<ExtractResult> {
+  const r = await fetch(`${BACKEND_URL}/facts/extract?limit=${limit}`, {
+    method: "POST"
+  })
+  if (!r.ok) throw new Error(`extract failed: ${r.status}`)
+  return r.json()
+}
+
 // ---- Chat (Phase 4) ----
 
 export interface SourceRef {
