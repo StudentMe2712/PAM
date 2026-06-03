@@ -1,24 +1,62 @@
 """Personal AI Memory — FastAPI entry point."""
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .routes import conversations, saved, search
+from .db import AsyncSessionLocal
+from .indexing import index_pending
+from .routes import conversations, indexing as index_routes, saved, search
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 
+_worker_log = logging.getLogger("pam.worker")
+
+
+async def _embed_worker() -> None:
+    """Background loop: backfill chunks + embed pending ones every 15s.
+
+    Resilient to Ollama being down — logs and retries on the next tick. Idle
+    when there's nothing to do (no Ollama call when no chunks are pending).
+    """
+    while True:
+        try:
+            async with AsyncSessionLocal() as session:
+                result = await index_pending(session)
+                if result["embedded"] or result["chunks_created"]:
+                    _worker_log.info("indexed %s", result)
+        except Exception as e:  # noqa: BLE001 — worker must never die
+            _worker_log.warning("embed worker tick failed: %s", e)
+        await asyncio.sleep(15)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(_embed_worker())
+    try:
+        yield
+    finally:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+
 app = FastAPI(
     title="Personal AI Memory",
-    version="0.1.0",
-    description="Phase 1 — collect AI conversations and search them.",
+    version="0.2.0",
+    description="Phase 2 — collect conversations, full-text + semantic search.",
+    lifespan=lifespan,
 )
 
 # CORS: allow extension and local web UI
@@ -45,6 +83,7 @@ app.add_middleware(
 app.include_router(conversations.router)
 app.include_router(saved.router)
 app.include_router(search.router)
+app.include_router(index_routes.router)
 
 
 @app.get("/")

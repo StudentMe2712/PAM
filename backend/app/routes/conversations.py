@@ -9,7 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ..db import get_session
-from ..models import Conversation, Message
+from ..indexing import chunk_text
+from ..models import Chunk, Conversation, Message
 from ..schemas import (
     ConversationDetail,
     ConversationSummary,
@@ -61,16 +62,17 @@ async def ingest_conversation(
             Message.__table__.delete().where(Message.conversation_id == existing.id)
         )
 
+    new_messages: list[Message] = []
     for m in payload.messages:
-        session.add(
-            Message(
-                conversation_id=existing.id,
-                role=m.role,
-                content=m.content,
-                position=m.position,
-                sent_at=m.sent_at,
-            )
+        obj = Message(
+            conversation_id=existing.id,
+            role=m.role,
+            content=m.content,
+            position=m.position,
+            sent_at=m.sent_at,
         )
+        session.add(obj)
+        new_messages.append(obj)
 
     await session.flush()
 
@@ -81,6 +83,13 @@ async def ingest_conversation(
         .where(Message.conversation_id == existing.id)
         .values(content_tsv=func.to_tsvector("simple", Message.content))
     )
+
+    # Phase 2: create chunks for the new messages. Embeddings are filled later
+    # by the indexing worker (chunk.embedding stays NULL here). On re-ingest the
+    # old messages were deleted above, and their chunks cascaded (FK ON DELETE CASCADE).
+    for obj in new_messages:
+        for i, ch in enumerate(chunk_text(obj.content)):
+            session.add(Chunk(message_id=obj.id, content=ch, position=i))
 
     await session.commit()
 
