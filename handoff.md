@@ -9,37 +9,39 @@
 
 ## 🔴 Активные ограничения (читать первым делом)
 
-- **Docker на ПАУЗЕ** (с 2026-06-02) — у пользователя проблемы с Windows. НЕ запускать `docker compose ...` пока пользователь явно не разрешит. Это блокирует runtime-проверку backend+Postgres+pgvector.
-- **Baseline-коммит есть.** `af61f83` на ветке `main`, запушен на GitHub `https://github.com/StudentMe2712/PAM.git`. 58 файлов, секреты/`node_modules`/билды отсечены `.gitignore` (проверено `git check-ignore`). Дальше коммитить по ходу работы; для фаз — отдельные ветки (`phase-2-rag` и т.д.).
-- **web/ ✅** (Next 16, Tailwind v4, build зелёный, связка с backend проверена). **extension/ собран ✅** (Plasmo build зелёный) — но **capture в реальном браузере ещё НЕ проверен** (нужен Chrome + логин).
+- **Docker на ПАУЗЕ** — НЕ запускать `docker compose ...` пока пользователь явно не разрешит. Backend гоняем локально: `backend/.venv` (Python 3.11) против Neon.
+- **Neon — ТОЛЬКО dev/тесты, НЕ реальные разговоры** (local-first). Реальные данные — в локальный Postgres, когда вернётся Docker. (Кредиты Neon были в чате — при экспорте чата стоит ротировать.)
+- **Git:** ветка `main` на GitHub `https://github.com/StudentMe2712/PAM.git`. Правило пользователя: значимые фичи → **отдельная ветка с понятным именем + понятные коммиты**; мелочь → в `main`. Перед коммитом — preflight `git check-ignore` (секреты/`node_modules`/билды уже в `.gitignore`).
+- **Запуск:** `dev.bat` (backend+extension скрыто в фоне, web — в окне) + `stop-dev.bat`. Миграции alembic: `DATABASE_URL="$(grep ^DATABASE_URL= backend/.env|cut -d= -f2-)" backend/.venv/Scripts/python.exe -m alembic ...`.
 
 ---
 
-## 📍 Текущее состояние (Phase 1)
+## 📍 Текущее состояние (на 2026-06-03)
 
-| Компонент | Статус | Заметки |
-|---|---|---|
-| `docker-compose.yml` | ✅ есть | запуск на паузе |
-| Backend (FastAPI: модели, schemas, ingest/list/search, миграция 0001) | ✅ код есть | не запускался в этой сессии |
-| Alembic миграция `0001_initial` | ✅ | включает `CREATE EXTENSION vector` |
-| Extension: `background.ts`, `popup.tsx`, `contents/claude.ts`, `contents/chatgpt.ts` | ✅ код есть | не собиралось |
-| Extension: `contents/gemini.ts` | ⚠️ заглушка | реализовать после наблюдения реального стрима в DevTools |
-| Extension: `contents/relay.ts` | ✅ добавлен | isolated-world мост postMessage→runtime.sendMessage (фикс MAIN-world бага) |
-| Extension: скаффолд (Plasmo, package.json, tsconfig, icon) | ✅ build зелёный | capture в браузере не проверен |
-| Web UI: `app/page.tsx`, `app/c/[id]/page.tsx`, `lib/api.ts` | ✅ заскаффолжен | Next 16 + Tailwind v4, build OK, dev OK; связка с backend ещё не проверена вживую |
+**🔀 Видение (уточнено):** PAM = личный AI с долгой памятью. ОСНОВНОЕ: (1) **чат с памятью** (Phase 3+4, чат = главный экран), (2) **личный лектор** (Phase 5: PDF/YouTube/статья → курс+тесты). ДОПОЛНИТЕЛЬНОЕ: раздел **«Импорт истории»** (бывш. Phase 1: extension тянет разговоры). Детали — `ROADMAP.md` → «Продуктовое видение».
 
-**Вывод по Phase 1:** backend runtime-проверен на живой БД (Neon dev): ingest/search/list/delete + русский полнотекст работают. Незакрытое: Gemini-парсер (нужен пользователь + DevTools), скаффолдинг web и extension, проверка связки extension↔backend и web↔backend.
+| Компонент | Статус |
+|---|---|
+| Backend (FastAPI, Neon, миграции 0001 + `efc12b5654c3` saved_messages) | ✅ проверен вживую (14/14 тестов) |
+| Web (Next 16 + Tailwind v4): лендинг `/`, `/history` (список+поиск+refresh), `/c/[id]` (★), `/saved`, nav-бар | ✅ build зелёный, связка с backend проверена |
+| Extension (Plasmo): `background`, `popup`, MAIN-world `claude/chatgpt`, isolated `relay`, `gemini`=заглушка | ✅ capture подтверждён в браузере (user 24+24); мост MAIN→relay→background работает |
+| Фича ★ Избранное (snapshot, переживает ре-ингест; FK SET NULL) | ✅ зашипжена в `main` |
+
+**Phase 1 закрыта** (как «Импорт истории»). Открытые мелочи: `gemini.ts` (нужен DevTools пользователя), полнота очень длинных чатов ChatGPT (BFS vs current_node — пока полнота подтверждена 24+24).
+
+**▶ СЛЕДУЮЩИЙ ШАГ: Phase 2 (RAG).** Ждём выбор пользователя A/B (см. низ лога) и установку **Ollama** (`ollama pull nomic-embed-text`) — единственное, что нужно от пользователя.
 
 ---
 
-## 🗺️ Roadmap (из плана, 4 фазы)
+## 🗺️ Roadmap (уточнённый — детали в `.planning/ROADMAP.md`)
 
-1. **Phase 1** *(текущая)* — capture + full-text search. Без внешних API.
-2. **Phase 2** — Ollama (`nomic-embed-text`), таблица `chunks`, эмбеддинги, гибридный поиск (text+vector через RRF).
-3. **Phase 3** — Gemini Free извлекает `profile_facts`, UI `/me`. Prompt-injection awareness + hallucination guard (`source_message_id`).
-4. **Phase 4** — RAG chat (`POST /chat` SSE), Groq → Claude Haiku/Sonnet + prompt caching.
+1. **Phase 1** ✅ *(закрыта)* — capture + full-text search → раздел «Импорт истории». + ★ Избранное.
+2. **Phase 2** *(следующая)* — Ollama (`nomic-embed-text`), таблица `chunks`, эмбеддинги, гибридный поиск (text+vector, RRF). Разблокирует авто-«популярное», mindmap v2, память чата.
+3. **Phase 3** — память: извлечение `profile_facts` (prompt-injection + hallucination guard `source_message_id`), UI `/me`.
+4. **Phase 4** — **чат с памятью = ГЛАВНЫЙ экран** (`POST /chat` SSE, RAG, Groq→Claude). Прошлый список/поиск уже в разделе «Импорт».
+5. **Phase 5** — **Личный лектор**: ингест PDF/YouTube/статья → персональный мини-курс + тесты под уровень из памяти.
 
-Правило: каждая фаза шиппится отдельно. Не тянуть работу Phase N+1 в Phase N.
+Правило: фаза шиппится отдельно, на своей ветке (`phase-2-rag` и т.д.). Не тянуть Phase N+1 в Phase N.
 
 ---
 
