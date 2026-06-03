@@ -9,6 +9,7 @@ export default function Nav() {
   const onChat = pathname === "/"
   const onHistory = pathname === "/history" || pathname.startsWith("/c/")
   const onSaved = pathname === "/saved"
+  const onMe = pathname === "/me"
 
   return (
     <header className="sticky top-0 z-20 border-b border-neutral-800 bg-neutral-950/80 backdrop-blur">
@@ -30,6 +31,9 @@ export default function Nav() {
           </Tab>
           <Tab href="/saved" active={onSaved}>
             Избранное
+          </Tab>
+          <Tab href="/me" active={onMe}>
+            Профиль
           </Tab>
           <Soon label="Лектор" />
         </nav>
