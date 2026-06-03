@@ -213,6 +213,34 @@ class ContentChunk(Base):
     __table_args__ = (Index("ix_content_chunks_source", "source_id"),)
 
 
+class Course(Base):
+    """A generated mini-course for a `ContentSource` (Phase 5 — личный лектор).
+
+    The structured course (level, summary, modules→lessons, quiz) is stored as
+    JSON in `data`. Tailored to the user's level inferred from `profile_facts`.
+    Multiple courses can exist per source (regeneration); newest wins in the UI.
+    """
+
+    __tablename__ = "courses"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("content_sources.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    level: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    __table_args__ = (Index("ix_courses_source", "source_id"),)
+
+
 class ProfileFact(Base):
     """A durable fact about the USER, extracted from conversations (Phase 3).
 

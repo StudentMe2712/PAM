@@ -18,9 +18,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..content import ingest_article, ingest_pdf
+from ..courses import generate_course
 from ..db import get_session
-from ..models import ContentSource
-from ..schemas import ContentSourceOut, IngestArticleIn
+from ..models import ContentSource, Course
+from ..schemas import ContentSourceOut, CourseOut, IngestArticleIn
 
 router = APIRouter(prefix="/learn", tags=["learn"])
 
@@ -108,3 +109,42 @@ async def delete_source(
         raise HTTPException(status_code=404, detail="source not found")
     await session.delete(src)
     await session.commit()
+
+
+@router.post("/sources/{source_id}/course", response_model=CourseOut)
+async def make_course(
+    source_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> Course:
+    """Generate a mini-course from the source, tailored to the user's level."""
+    src = (
+        await session.execute(
+            select(ContentSource).where(ContentSource.id == source_id)
+        )
+    ).scalar_one_or_none()
+    if not src:
+        raise HTTPException(status_code=404, detail="source not found")
+    if src.status != "extracted" or not src.text:
+        raise HTTPException(status_code=409, detail="source has no extracted text")
+    try:
+        return await generate_course(session, src)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"course generation failed: {e}")
+
+
+@router.get("/sources/{source_id}/course", response_model=CourseOut | None)
+async def latest_course(
+    source_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> Course | None:
+    """Return the most recently generated course for the source (or null)."""
+    return (
+        await session.execute(
+            select(Course)
+            .where(Course.source_id == source_id)
+            .order_by(Course.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()

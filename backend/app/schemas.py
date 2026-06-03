@@ -133,3 +133,14 @@ class ContentSourceOut(BaseModel):
 
 class IngestArticleIn(BaseModel):
     url: str
+
+
+class CourseOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    source_id: uuid.UUID
+    title: str | None
+    level: str | None
+    data: dict[str, Any]
+    created_at: datetime
