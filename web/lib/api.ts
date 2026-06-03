@@ -170,6 +170,107 @@ export async function extractFacts(limit = 10): Promise<ExtractResult> {
   return r.json()
 }
 
+// ---- Learning content (Phase 5 — личный лектор) ----
+
+export interface ContentSource {
+  id: string
+  kind: "article" | "pdf" | "youtube"
+  title: string | null
+  url: string | null
+  status: "pending" | "extracted" | "failed"
+  char_count: number
+  error: string | null
+  created_at: string
+}
+
+export interface QuizQuestion {
+  question: string
+  options: string[]
+  answer_index: number
+  explanation?: string
+}
+
+export interface CourseLesson {
+  title: string
+  content: string
+}
+
+export interface CourseModule {
+  title: string
+  lessons: CourseLesson[]
+}
+
+export interface CourseData {
+  title?: string
+  level?: string
+  summary?: string
+  modules: CourseModule[]
+  quiz: QuizQuestion[]
+}
+
+export interface Course {
+  id: string
+  source_id: string
+  title: string | null
+  level: string | null
+  data: CourseData
+  created_at: string
+}
+
+export async function listSources(): Promise<ContentSource[]> {
+  const r = await fetch(`${BACKEND_URL}/learn/sources`, { cache: "no-store" })
+  if (!r.ok) throw new Error(`list sources failed: ${r.status}`)
+  return r.json()
+}
+
+export async function ingestArticle(url: string): Promise<ContentSource> {
+  const r = await fetch(`${BACKEND_URL}/learn/article`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ url })
+  })
+  if (!r.ok) {
+    const d = await r.json().catch(() => ({}))
+    throw new Error(d.detail || `article ingest failed: ${r.status}`)
+  }
+  return r.json()
+}
+
+export async function uploadPdf(file: File): Promise<ContentSource> {
+  const fd = new FormData()
+  fd.append("file", file)
+  const r = await fetch(`${BACKEND_URL}/learn/pdf`, { method: "POST", body: fd })
+  if (!r.ok) {
+    const d = await r.json().catch(() => ({}))
+    throw new Error(d.detail || `pdf upload failed: ${r.status}`)
+  }
+  return r.json()
+}
+
+export async function deleteSource(id: string): Promise<void> {
+  const r = await fetch(`${BACKEND_URL}/learn/sources/${id}`, { method: "DELETE" })
+  if (!r.ok && r.status !== 204) throw new Error(`delete source failed: ${r.status}`)
+}
+
+export async function generateCourse(sourceId: string): Promise<Course> {
+  const r = await fetch(`${BACKEND_URL}/learn/sources/${sourceId}/course`, {
+    method: "POST"
+  })
+  if (!r.ok) {
+    const d = await r.json().catch(() => ({}))
+    throw new Error(d.detail || `course generation failed: ${r.status}`)
+  }
+  return r.json()
+}
+
+export async function getCourse(sourceId: string): Promise<Course | null> {
+  const r = await fetch(`${BACKEND_URL}/learn/sources/${sourceId}/course`, {
+    cache: "no-store"
+  })
+  if (!r.ok) throw new Error(`get course failed: ${r.status}`)
+  return r.json()
+}
+
 // ---- Chat (Phase 4) ----
 
 export interface SourceRef {
