@@ -121,6 +121,11 @@ async def list_conversations(
     )
     if source:
         q = q.where(Conversation.source == source)
+    else:
+        # Hide PAM chat conversations from the default "История" list — they are
+        # the user's own chats with PAM (kept as memory + searchable), not
+        # imported history. An explicit ?source=pam still returns them.
+        q = q.where(Conversation.source != "pam")
 
     rows = (await session.execute(q)).all()
     out: list[ConversationSummary] = []
