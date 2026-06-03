@@ -10,6 +10,7 @@ export default function Nav() {
   const onHistory = pathname === "/history" || pathname.startsWith("/c/")
   const onSaved = pathname === "/saved"
   const onMe = pathname === "/me"
+  const onLearn = pathname === "/learn"
 
   return (
     <header className="sticky top-0 z-20 border-b border-neutral-800 bg-neutral-950/80 backdrop-blur">
@@ -35,7 +36,9 @@ export default function Nav() {
           <Tab href="/me" active={onMe}>
             Профиль
           </Tab>
-          <Soon label="Лектор" />
+          <Tab href="/learn" active={onLearn}>
+            Лектор
+          </Tab>
         </nav>
       </div>
     </header>
@@ -62,18 +65,5 @@ function Tab({
       }`}>
       {children}
     </Link>
-  )
-}
-
-function Soon({ label }: { label: string }) {
-  return (
-    <span
-      title="скоро"
-      className="px-3 py-1.5 rounded-md text-neutral-600 cursor-default select-none flex items-center gap-1.5">
-      {label}
-      <span className="text-[9px] uppercase tracking-wider border border-neutral-800 rounded px-1 py-px text-neutral-600">
-        скоро
-      </span>
-    </span>
   )
 }

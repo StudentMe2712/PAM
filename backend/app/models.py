@@ -149,6 +149,98 @@ class Chunk(Base):
     __table_args__ = (Index("ix_chunks_message", "message_id"),)
 
 
+class ContentSource(Base):
+    """A piece of learning material the user fed in (Phase 5 — личный лектор).
+
+    A `kind` of article/pdf/youtube. The raw text is extracted on ingest and
+    stored in `text`; it is then chunked into `ContentChunk`s and embedded
+    (reusing the Phase 2 local-embedding pipeline) so a course can be generated
+    and lessons can retrieve the relevant part of long material.
+    """
+
+    __tablename__ = "content_sources"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)  # article|pdf|youtube
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    url: Mapped[str | None] = mapped_column(Text, nullable=True)  # article/youtube source
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="pending"
+    )  # pending|extracted|failed
+    text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    char_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    chunks: Mapped[list["ContentChunk"]] = relationship(
+        "ContentChunk",
+        back_populates="source",
+        cascade="all, delete-orphan",
+        order_by="ContentChunk.position",
+    )
+
+    __table_args__ = (Index("ix_content_sources_created", "created_at"),)
+
+
+class ContentChunk(Base):
+    """A chunk of a `ContentSource` + its embedding (Phase 5, mirrors `Chunk`)."""
+
+    __tablename__ = "content_chunks"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("content_sources.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(768), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    source: Mapped[ContentSource] = relationship(
+        "ContentSource", back_populates="chunks"
+    )
+
+    __table_args__ = (Index("ix_content_chunks_source", "source_id"),)
+
+
+class Course(Base):
+    """A generated mini-course for a `ContentSource` (Phase 5 — личный лектор).
+
+    The structured course (level, summary, modules→lessons, quiz) is stored as
+    JSON in `data`. Tailored to the user's level inferred from `profile_facts`.
+    Multiple courses can exist per source (regeneration); newest wins in the UI.
+    """
+
+    __tablename__ = "courses"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("content_sources.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    level: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    __table_args__ = (Index("ix_courses_source", "source_id"),)
+
+
 class ProfileFact(Base):
     """A durable fact about the USER, extracted from conversations (Phase 3).
 
