@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react"
 import {
   listSources,
   ingestArticle,
+  ingestYoutube,
+  isYoutubeUrl,
   uploadPdf,
   deleteSource,
   generateCourse,
@@ -36,13 +38,13 @@ export default function LearnPage() {
       .finally(() => setLoading(false))
   }, [tick])
 
-  async function addArticle() {
+  async function addUrl() {
     const u = url.trim()
     if (!u) return
     setAdding(true)
     setError(null)
     try {
-      await ingestArticle(u)
+      await (isYoutubeUrl(u) ? ingestYoutube(u) : ingestArticle(u))
       setUrl("")
       setTick((t) => t + 1)
     } catch (e) {
@@ -116,8 +118,8 @@ export default function LearnPage() {
           <RefreshButton onClick={() => setTick((t) => t + 1)} busy={loading} />
         </div>
         <p className="text-neutral-400 mt-2 text-sm font-sans">
-          Добавь материал (ссылку на статью или PDF) — PAM соберёт по нему
-          персональный мини-курс с уроками и тестом под твой уровень.
+          Добавь материал (статью, видео с YouTube или PDF) — PAM соберёт по
+          нему персональный мини-курс с уроками и тестом под твой уровень.
         </p>
       </header>
 
@@ -127,15 +129,19 @@ export default function LearnPage() {
           <input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addArticle()}
-            placeholder="https://… ссылка на статью"
+            onKeyDown={(e) => e.key === "Enter" && addUrl()}
+            placeholder="https://… статья или ссылка на YouTube"
             className="flex-1 bg-neutral-900 border border-neutral-800 rounded-md px-3 py-2 text-sm font-sans focus:outline-none focus:border-lime-400/50"
           />
           <button
-            onClick={addArticle}
+            onClick={addUrl}
             disabled={adding || !url.trim()}
             className="text-sm px-4 py-2 rounded-md border border-neutral-700 text-neutral-200 hover:text-lime-400 hover:border-lime-400/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-            {adding ? "добавляю…" : "добавить статью"}
+            {adding
+              ? "добавляю…"
+              : url.trim() && isYoutubeUrl(url)
+                ? "добавить видео"
+                : "добавить статью"}
           </button>
         </div>
         <div className="flex items-center gap-3 text-sm font-sans text-neutral-400">

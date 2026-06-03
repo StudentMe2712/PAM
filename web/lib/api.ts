@@ -236,6 +236,34 @@ export async function ingestArticle(url: string): Promise<ContentSource> {
   return r.json()
 }
 
+export async function ingestYoutube(url: string): Promise<ContentSource> {
+  const r = await fetch(`${BACKEND_URL}/learn/youtube`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ url })
+  })
+  if (!r.ok) {
+    const d = await r.json().catch(() => ({}))
+    throw new Error(d.detail || `youtube ingest failed: ${r.status}`)
+  }
+  return r.json()
+}
+
+/** True for youtube.com / youtu.be links (so the UI can route to /learn/youtube). */
+export function isYoutubeUrl(url: string): boolean {
+  try {
+    const h = new URL(url).hostname.toLowerCase().replace(/^www\./, "")
+    return (
+      h === "youtu.be" ||
+      h === "youtube.com" ||
+      h === "m.youtube.com" ||
+      h === "music.youtube.com"
+    )
+  } catch {
+    return false
+  }
+}
+
 export async function uploadPdf(file: File): Promise<ContentSource> {
   const fd = new FormData()
   fd.append("file", file)
