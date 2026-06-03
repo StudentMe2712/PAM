@@ -183,7 +183,8 @@
 - **Задачи #8–#11** (pending): `POST /chat` (RAG-ретрив + system-промпт с anti-injection + SSE), хранить чаты как `Conversation(source='pam')` (→ чанкуются/эмбеддятся = память), чат-UI на главной, `/security-review`+тест+мерж.
 - **Сделано #7–#10:** `llm.py` (Groq/Ollama стриминг); `POST /chat` (`routes/chat.py`: RAG топ-6 + anti-injection system-промпт + SSE + персист в `Conversation(source='pam')`, мультитёрн); чат-UI на `/` (`app/page.tsx`: стриминг через fetch+ReadableStream, сайдбар, markdown, чипы памяти); nav «Чат» активна. Backend импорт-чек ок (`/chat` в роутах), web build зелёный.
 - **Осталось #11 (блок на ключ):** `/security-review` + e2e-тест чата + мерж. **Ждём `GROQ_API_KEY`** (console.groq.com) в `backend/.env`. Без ключа: `LLM_PROVIDER=ollama` + `ollama pull llama3.2:3b` (медленно на этом ПК).
-- Ветка `phase-4-chat` (НЕ мержена). Заметка: PAM-чаты сохраняются как `source=pam` → попадают в `chunks`/эмбеддинги и в список «История» (можно позже отфильтровать pam из Истории).
+- **#11 + МЕРЖ:** пользователь вписал `GROQ_API_KEY`. 404 на `/chat` был из-за старого backend на :8000 → перезапустил (убил все python: `--reload` плодит дочерний процесс, не матчащийся по cmdline — надёжно бить по порту/`Get-Process python`). **E2E с Groq: «Что я спрашивал про 1С?» → ответ по реальной истории**, стриминг, дедуп источников, чат сохранён. GUI допилен под ChatGPT/Claude (бабблы, аватар, typing-dots, авто-рост ввод). `/security-review` — чисто (инлайн; XSS нет — ReactMarkdown без raw; SQLi/SSRF нет; секреты ок). **`phase-4-chat` смержена в `main` (ff).**
+- **Phase 4 ЗАВЕРШЕНА.** Дальше по плану пользователя: авто-«популярное»/mindmap в «Импорте» (поверх эмбеддингов), затем Phase 3 (profile_facts через Groq). Заметка: curl на Windows бьёт кириллицу в body → тестировать чат через python/urllib (UTF-8), не curl.
 
 **Как поднять backend локально (без Docker):**
 ```bash
