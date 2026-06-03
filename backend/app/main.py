@@ -12,7 +12,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .db import AsyncSessionLocal
 from .indexing import index_pending
-from .routes import conversations, indexing as index_routes, saved, search
+from .routes import (
+    chat,
+    conversations,
+    indexing as index_routes,
+    saved,
+    search,
+)
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -84,6 +90,7 @@ app.include_router(conversations.router)
 app.include_router(saved.router)
 app.include_router(search.router)
 app.include_router(index_routes.router)
+app.include_router(chat.router)
 
 
 @app.get("/")
