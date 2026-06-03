@@ -21,8 +21,10 @@
 Сделано на ветке:
 - [x] Backend: модель `SavedMessage` (снимок, FK SET NULL), схемы, роуты `POST/GET/DELETE /saved`, миграция `efc12b5654c3`. Применена на Neon, smoke-тест прошёл (POST 201 / GET / DELETE 204).
 - [x] Web: API-клиент (`saveMessage/listSaved/deleteSaved`), кнопка ★ на сообщениях в `/c/[id]`, раздел `/saved`, вкладка в nav. Build зелёный.
-- [ ] **Нужен пользователь:** прогнать в браузере — открыть разговор, нажать ☆ на сообщении, проверить раздел «Избранное» (нужен запущенный backend с новым кодом → перезапусти dev.bat/stop-dev.bat).
-- [ ] Затем мерж `saved-messages` → main.
+- [x] **Пользователь подтвердил: Избранное работает.**
+- [x] **Кнопка обновления** (`web/app/refresh-button.tsx`, SVG + спиннер) на `/history` и `/saved` (вместо перезагрузки браузера).
+- [x] **Расширенные тесты 14/14** (urllib-скрипт): UPSERT, /saved CRUD, кириллица round-trip, ★ выживает при ре-захвате, FK SET NULL при удалении разговора, поиск. Neon очищен.
+- [ ] Мерж `saved-messages` → main, затем Phase 2 RAG.
 
 Дальше (по плану): **Phase 2 RAG** (ветка `phase-2-rag`) — нужна установка Ollama (`ollama pull nomic-embed-text`). Разблокирует авто-«популярное», поиск по смыслу, mindmap v2, чат-память.
 Заметка: при ре-захвате `messages` вайпятся — поэтому избранное хранится снимком в `saved_messages`.
