@@ -26,7 +26,8 @@ class Settings(BaseSettings):
     # https://openrouter.ai/keys (бесплатно, без карты). Сильные free-модели:
     # deepseek/deepseek-r1:free, deepseek/deepseek-chat:free, qwen/qwen3-235b-a22b:free.
     OPENROUTER_API_KEY: str = ""
-    OPENROUTER_MODEL: str = "deepseek/deepseek-r1:free"
+    # Проверено живьём: быстрый (~5с), чистый ответ, поддержка JSON-mode, 1M контекст.
+    OPENROUTER_MODEL: str = "nvidia/nemotron-3-super-120b-a12b:free"
     OLLAMA_CHAT_MODEL: str = "llama3.2:3b"
 
     @property
