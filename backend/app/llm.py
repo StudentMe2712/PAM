@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from collections.abc import AsyncIterator
 
 import httpx
@@ -22,14 +23,47 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 # OpenRouter использует эти заголовки для рейтинга приложений (необязательны).
 OPENROUTER_HEADERS = {"HTTP-Referer": "http://localhost:3000", "X-Title": "PAM"}
 
+# Гибрид: «тяжёлые» запросы → мощная (но медленная) модель OpenRouter,
+# остальное → быстрый Groq. Триггеры сложности (код/разбор/длина).
+_HARD_RE = re.compile(
+    r"(```|код|скрипт|функци|класс|алгоритм|debug|деб[аа]г|ошибк|error|traceback|"
+    r"exception|стек|оптимиз|рефактор|регуляр|sql|запрос|конфиг|настрой|пошагов|"
+    r"подробно|разбер|сравни|почему|как работает|архитектур|спроект|реализу|"
+    r"напиши|сгенерир|посчитай|докаж|выведи формул|объясни подроб)",
+    re.IGNORECASE,
+)
 
-async def stream_chat(messages: list[dict]) -> AsyncIterator[str]:
-    """Yield response tokens for the given chat messages, via the configured provider."""
-    provider = settings.LLM_PROVIDER.lower()
-    if provider == "ollama":
+
+def route_provider(text: str) -> str:
+    """Гибрид-маршрутизация по тексту запроса: 'groq' (быстро) или 'openrouter' (мощно)."""
+    if not settings.OPENROUTER_API_KEY:
+        return "groq"
+    if len(text) > 280 or "```" in text or _HARD_RE.search(text):
+        return "openrouter"
+    return "groq"
+
+
+def model_for(provider: str) -> str:
+    """Имя модели для отображения/логов по имени провайдера."""
+    p = provider.lower()
+    if p == "openrouter":
+        return settings.OPENROUTER_MODEL
+    if p == "ollama":
+        return settings.OLLAMA_CHAT_MODEL
+    return settings.GROQ_MODEL
+
+
+async def stream_chat(
+    messages: list[dict], provider: str | None = None
+) -> AsyncIterator[str]:
+    """Stream response tokens. `provider` overrides settings (used by the hybrid router)."""
+    p = (provider or settings.LLM_PROVIDER).lower()
+    if p == "hybrid":  # на всякий случай: hybrid разрешается выше по стеку
+        p = "groq"
+    if p == "ollama":
         async for tok in _stream_ollama(messages):
             yield tok
-    elif provider == "openrouter":
+    elif p == "openrouter":
         async for tok in _stream_openai_compatible(
             messages, OPENROUTER_URL, settings.OPENROUTER_API_KEY,
             settings.OPENROUTER_MODEL, "OPENROUTER_API_KEY", OPENROUTER_HEADERS,

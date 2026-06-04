@@ -6,6 +6,7 @@ import {
   getConversation,
   listConversations,
   streamChat,
+  type ChatMeta,
   type ConversationSummary,
   type SourceRef
 } from "../lib/api"
@@ -27,6 +28,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("")
   const [busy, setBusy] = useState(false)
   const [sources, setSources] = useState<SourceRef[]>([])
+  const [meta, setMeta] = useState<ChatMeta | null>(null)
   const [error, setError] = useState<string | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
@@ -85,6 +87,7 @@ export default function ChatPage() {
     requestAnimationFrame(growTextarea)
     setError(null)
     setSources([])
+    setMeta(null)
     setBusy(true)
     setMessages((prev) => [
       ...prev,
@@ -93,6 +96,7 @@ export default function ChatPage() {
     ])
     try {
       await streamChat(text, convId, {
+        onMeta: setMeta,
         onSources: setSources,
         onToken: (t) =>
           setMessages((prev) => {
@@ -174,6 +178,16 @@ export default function ChatPage() {
                               {s.source}/{s.title || "—"}
                             </span>
                           ))}
+                        </div>
+                      )}
+                      {i === messages.length - 1 && meta && m.content && (
+                        <div className="mt-2 text-[10px] text-neutral-600 flex items-center gap-1">
+                          <span>
+                            {meta.provider === "openrouter" ? "🧠" : meta.provider === "ollama" ? "💻" : "⚡"}
+                          </span>
+                          <span className="truncate max-w-[280px]">
+                            {meta.provider} · {meta.model.split("/").pop()?.replace(":free", "")}
+                          </span>
                         </div>
                       )}
                     </div>

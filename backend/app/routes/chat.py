@@ -19,10 +19,11 @@ from pydantic import BaseModel
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import selectinload
 
+from ..config import settings
 from ..db import AsyncSessionLocal
 from ..extraction import extract_facts_for_conversation
 from ..indexing import chunk_text, embed_text
-from ..llm import stream_chat
+from ..llm import model_for, route_provider, stream_chat
 from ..models import Chunk, Conversation, Message, ProfileFact
 
 log = logging.getLogger(__name__)
@@ -220,11 +221,16 @@ async def chat(payload: ChatIn):
         _seen.add(key)
         sources.append({"source": r.source, "title": r.title})
 
+    # Гибрид-роутер: на «тяжёлый» запрос берём мощную модель, иначе быструю.
+    cfg = settings.LLM_PROVIDER.lower()
+    chosen = route_provider(user_msg) if cfg == "hybrid" else cfg
+
     async def gen() -> AsyncIterator[bytes]:
+        yield _sse({"meta": {"provider": chosen, "model": model_for(chosen)}})
         yield _sse({"sources": sources})
         answer = ""
         try:
-            async for tok in stream_chat(messages):
+            async for tok in stream_chat(messages, provider=chosen):
                 answer += tok
                 yield _sse({"token": tok})
         except Exception as e:  # noqa: BLE001
