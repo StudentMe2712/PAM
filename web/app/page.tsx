@@ -1,8 +1,6 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
 
 import {
   getConversation,
@@ -11,6 +9,7 @@ import {
   type ConversationSummary,
   type SourceRef
 } from "../lib/api"
+import Markdown from "./markdown"
 
 interface Msg {
   role: "user" | "assistant"
@@ -168,11 +167,12 @@ export default function ChatPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       {m.content ? (
-                        <div className="prose prose-invert prose-sm max-w-none font-sans">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {m.content}
-                          </ReactMarkdown>
-                        </div>
+                        <>
+                          <Markdown>{m.content}</Markdown>
+                          {busy && i === messages.length - 1 && (
+                            <span className="inline-block w-2 h-4 -mb-0.5 ml-0.5 bg-lime-400 animate-pulse rounded-[1px]" />
+                          )}
+                        </>
                       ) : (
                         <TypingDots />
                       )}
