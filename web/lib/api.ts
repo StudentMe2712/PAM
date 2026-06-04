@@ -7,11 +7,13 @@ const BACKEND_URL =
 
 export interface ConversationSummary {
   id: string
-  source: "chatgpt" | "claude" | "gemini"
+  source: "chatgpt" | "claude" | "gemini" | "pam"
   external_id: string
   title: string | null
   started_at: string | null
   updated_at: string
+  pinned: boolean
+  archived: boolean
   message_count: number
 }
 
@@ -42,16 +44,37 @@ export async function listConversations(opts?: {
   source?: string
   limit?: number
   offset?: number
+  archived?: boolean
 }): Promise<ConversationSummary[]> {
   const params = new URLSearchParams()
   if (opts?.source) params.set("source", opts.source)
   if (opts?.limit) params.set("limit", String(opts.limit))
   if (opts?.offset) params.set("offset", String(opts.offset))
+  if (opts?.archived) params.set("archived", "true")
   const r = await fetch(`${BACKEND_URL}/conversations?${params}`, {
     cache: "no-store"
   })
   if (!r.ok) throw new Error(`list failed: ${r.status}`)
   return r.json()
+}
+
+/** Toggle pinned/archived on a conversation (sidebar actions). */
+export async function patchConversation(
+  id: string,
+  body: { pinned?: boolean; archived?: boolean }
+): Promise<ConversationSummary> {
+  const r = await fetch(`${BACKEND_URL}/conversations/${id}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body)
+  })
+  if (!r.ok) throw new Error(`patch failed: ${r.status}`)
+  return r.json()
+}
+
+export async function deleteConversation(id: string): Promise<void> {
+  const r = await fetch(`${BACKEND_URL}/conversations/${id}`, { method: "DELETE" })
+  if (!r.ok && r.status !== 204) throw new Error(`delete failed: ${r.status}`)
 }
 
 export async function getConversation(id: string): Promise<ConversationDetail> {
