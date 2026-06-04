@@ -9,6 +9,7 @@ import {
   type ConversationSummary,
   type SourceRef
 } from "../lib/api"
+import { getCache, setCache } from "../lib/cache"
 import Markdown from "./markdown"
 
 interface Msg {
@@ -17,7 +18,9 @@ interface Msg {
 }
 
 export default function ChatPage() {
-  const [chats, setChats] = useState<ConversationSummary[]>([])
+  const [chats, setChats] = useState<ConversationSummary[]>(
+    () => getCache<ConversationSummary[]>("chats") ?? []
+  )
   const [messages, setMessages] = useState<Msg[]>([])
   const [convId, setConvId] = useState<string | null>(null)
   const [input, setInput] = useState("")
@@ -29,7 +32,10 @@ export default function ChatPage() {
 
   const loadChats = () =>
     listConversations({ source: "pam", limit: 50 })
-      .then(setChats)
+      .then((d) => {
+        setChats(d)
+        setCache("chats", d)
+      })
       .catch(() => {})
 
   useEffect(() => {
@@ -106,9 +112,9 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-9rem)]">
+    <div className="flex h-[calc(100vh-3.5rem)]">
       {/* sidebar */}
-      <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-neutral-800 pr-3">
+      <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-neutral-800 px-3 lg:pl-6 py-4">
         <button
           onClick={newChat}
           className="mb-3 flex items-center gap-2 text-xs uppercase tracking-widest border border-neutral-800 rounded-lg px-3 py-2.5 text-neutral-300 hover:text-lime-400 hover:border-lime-400/40 transition-colors">
@@ -140,7 +146,7 @@ export default function ChatPage() {
       {/* chat column */}
       <main className="flex-1 flex flex-col min-w-0">
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-3xl mx-auto px-1 py-2 space-y-6">
+          <div className="max-w-3xl mx-auto px-4 md:px-6 py-4 space-y-6">
             {messages.length === 0 ? (
               <div className="h-[60vh] flex flex-col items-center justify-center text-center px-6">
                 <div className="w-10 h-10 rounded-xl bg-lime-400/10 border border-lime-400/30 text-lime-400 flex items-center justify-center font-semibold mb-4">
@@ -200,14 +206,14 @@ export default function ChatPage() {
         </div>
 
         {error && (
-          <div className="max-w-3xl mx-auto w-full text-red-400 text-sm font-sans py-2">
+          <div className="max-w-3xl mx-auto w-full px-4 md:px-6 text-red-400 text-sm font-sans py-2">
             Ошибка: {error}
           </div>
         )}
 
         {/* input bar */}
-        <div className="border-t border-neutral-800 pt-3">
-          <div className="max-w-3xl mx-auto">
+        <div className="border-t border-neutral-800 pt-3 pb-4">
+          <div className="max-w-3xl mx-auto px-4 md:px-6">
             <form
               onSubmit={(e) => {
                 e.preventDefault()

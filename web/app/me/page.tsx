@@ -8,11 +8,16 @@ import {
   extractFacts,
   type ProfileFact
 } from "../../lib/api"
+import { getCache, setCache } from "../../lib/cache"
 import RefreshButton from "../refresh-button"
 
 export default function MePage() {
-  const [items, setItems] = useState<ProfileFact[]>([])
-  const [loading, setLoading] = useState(true)
+  const [items, setItems] = useState<ProfileFact[]>(
+    () => getCache<ProfileFact[]>("facts") ?? []
+  )
+  const [loading, setLoading] = useState(
+    () => getCache<ProfileFact[]>("facts") === undefined
+  )
   const [error, setError] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
   const [extracting, setExtracting] = useState(false)
@@ -21,7 +26,10 @@ export default function MePage() {
   useEffect(() => {
     setLoading(true)
     listFacts()
-      .then(setItems)
+      .then((d) => {
+        setItems(d)
+        setCache("facts", d)
+      })
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false))
   }, [tick])
@@ -64,7 +72,7 @@ export default function MePage() {
   }
 
   return (
-    <main>
+    <main className="max-w-5xl mx-auto px-6 py-8">
       <header className="border-b border-neutral-800 pb-6 mb-6">
         <div className="text-xs uppercase tracking-widest text-lime-400 mb-2">
           /// профиль
@@ -95,7 +103,7 @@ export default function MePage() {
         <div className="text-lime-400 text-sm font-sans mb-4">{notice}</div>
       )}
 
-      {loading ? (
+      {loading && items.length === 0 ? (
         <div className="text-neutral-500 text-sm py-12">// загрузка…</div>
       ) : items.length === 0 ? (
         <div className="text-neutral-500 text-sm py-12 border border-dashed border-neutral-800 text-center font-sans">
