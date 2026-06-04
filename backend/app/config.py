@@ -17,7 +17,10 @@ class Settings(BaseSettings):
     # Phase 4 — chat LLM (provider-agnostic). "groq" (cloud, free) | "ollama" (local).
     LLM_PROVIDER: str = "groq"
     GROQ_API_KEY: str = ""
-    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    # gpt-oss-120b — самая сильная open-модель на Groq (reasoning в отдельном
+    # поле, в content не течёт), быстрая и многоязычная. Можно вернуть
+    # llama-3.3-70b-versatile / meta-llama/llama-4-scout-17b-16e-instruct.
+    GROQ_MODEL: str = "openai/gpt-oss-120b"
     OLLAMA_CHAT_MODEL: str = "llama3.2:3b"
 
     @property
