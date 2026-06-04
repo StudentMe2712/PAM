@@ -329,7 +329,13 @@ export interface SourceRef {
   title: string | null
 }
 
+export interface ChatMeta {
+  provider: string
+  model: string
+}
+
 export interface ChatHandlers {
+  onMeta?: (m: ChatMeta) => void
   onSources?: (s: SourceRef[]) => void
   onToken?: (t: string) => void
   onDone?: (conversationId: string | null) => void
@@ -367,6 +373,7 @@ export async function streamChat(
       if (!line.startsWith("data:")) continue
       try {
         const obj = JSON.parse(line.slice(5).trim())
+        if (obj.meta) h.onMeta?.(obj.meta)
         if (obj.sources) h.onSources?.(obj.sources)
         if (obj.token) h.onToken?.(obj.token)
         if (obj.error) h.onError?.(obj.error)
