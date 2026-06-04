@@ -7,6 +7,7 @@ from typing import Any
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -41,6 +42,9 @@ class Conversation(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+    # Phase: sidebar — закрепление/архивация чатов (в основном для source='pam').
+    pinned: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    archived: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     raw_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
     messages: Mapped[list["Message"]] = relationship(

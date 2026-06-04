@@ -13,6 +13,7 @@ from ..indexing import chunk_text
 from ..models import Chunk, Conversation, Message
 from ..schemas import (
     ConversationDetail,
+    ConversationPatch,
     ConversationSummary,
     IncomingConversation,
     IngestResult,
@@ -102,12 +103,13 @@ async def ingest_conversation(
 
 @router.get("", response_model=list[ConversationSummary])
 async def list_conversations(
-    source: str | None = Query(None, description="filter: chatgpt|claude|gemini"),
+    source: str | None = Query(None, description="filter: chatgpt|claude|gemini|pam"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    archived: bool = Query(False, description="show archived instead of active"),
     session: AsyncSession = Depends(get_session),
 ) -> list[ConversationSummary]:
-    """List conversations newest-first."""
+    """List conversations — pinned first, then newest. Archived hidden by default."""
     q = (
         select(
             Conversation,
@@ -115,7 +117,8 @@ async def list_conversations(
         )
         .outerjoin(Message)
         .group_by(Conversation.id)
-        .order_by(Conversation.updated_at.desc())
+        .where(Conversation.archived.is_(archived))
+        .order_by(Conversation.pinned.desc(), Conversation.updated_at.desc())
         .limit(limit)
         .offset(offset)
     )
@@ -134,6 +137,27 @@ async def list_conversations(
         s.message_count = int(cnt or 0)
         out.append(s)
     return out
+
+
+@router.patch("/{conv_id}", response_model=ConversationSummary)
+async def patch_conversation(
+    conv_id: uuid.UUID,
+    patch: ConversationPatch,
+    session: AsyncSession = Depends(get_session),
+) -> ConversationSummary:
+    """Toggle pinned / archived on a conversation (sidebar actions)."""
+    conv = (
+        await session.execute(select(Conversation).where(Conversation.id == conv_id))
+    ).scalar_one_or_none()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if patch.pinned is not None:
+        conv.pinned = patch.pinned
+    if patch.archived is not None:
+        conv.archived = patch.archived
+    await session.commit()
+    await session.refresh(conv)
+    return ConversationSummary.model_validate(conv)
 
 
 @router.get("/{conv_id}", response_model=ConversationDetail)

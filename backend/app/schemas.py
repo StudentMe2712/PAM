@@ -52,11 +52,18 @@ class ConversationSummary(BaseModel):
     title: str | None
     started_at: datetime | None
     updated_at: datetime
+    pinned: bool = False
+    archived: bool = False
     message_count: int = 0
 
 
 class ConversationDetail(ConversationSummary):
     messages: list[MessageOut] = Field(default_factory=list)
+
+
+class ConversationPatch(BaseModel):
+    pinned: bool | None = None
+    archived: bool | None = None
 
 
 class SearchHit(BaseModel):

@@ -10,6 +10,7 @@ import {
   type SourceRef
 } from "../lib/api"
 import { getCache, setCache } from "../lib/cache"
+import ChatSidebar from "./chat-sidebar"
 import Markdown from "./markdown"
 
 interface Msg {
@@ -113,35 +114,14 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)]">
-      {/* sidebar */}
-      <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-neutral-800 px-3 lg:pl-6 py-4">
-        <button
-          onClick={newChat}
-          className="mb-3 flex items-center gap-2 text-xs uppercase tracking-widest border border-neutral-800 rounded-lg px-3 py-2.5 text-neutral-300 hover:text-lime-400 hover:border-lime-400/40 transition-colors">
-          <span className="text-base leading-none">＋</span> Новый чат
-        </button>
-        <div className="text-[10px] uppercase tracking-widest text-neutral-600 mb-2 px-1">
-          чаты
-        </div>
-        <ul className="overflow-y-auto space-y-0.5 text-sm">
-          {chats.map((c) => (
-            <li key={c.id}>
-              <button
-                onClick={() => openChat(c.id)}
-                className={`block w-full text-left truncate px-2.5 py-2 rounded-lg transition-colors ${
-                  c.id === convId
-                    ? "bg-neutral-800 text-neutral-100"
-                    : "text-neutral-400 hover:text-neutral-100 hover:bg-neutral-900"
-                }`}>
-                {c.title || "(без названия)"}
-              </button>
-            </li>
-          ))}
-          {chats.length === 0 && (
-            <li className="text-neutral-600 text-xs px-2 py-1">пока пусто</li>
-          )}
-        </ul>
-      </aside>
+      <ChatSidebar
+        chats={chats}
+        activeId={convId}
+        onSelect={openChat}
+        onNewChat={newChat}
+        onChanged={loadChats}
+        onDeletedActive={newChat}
+      />
 
       {/* chat column */}
       <main className="flex-1 flex flex-col min-w-0">

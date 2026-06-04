@@ -17,8 +17,10 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select, update
+from sqlalchemy.orm import selectinload
 
 from ..db import AsyncSessionLocal
+from ..extraction import extract_facts_for_conversation
 from ..indexing import chunk_text, embed_text
 from ..llm import stream_chat
 from ..models import Chunk, Conversation, Message, ProfileFact
@@ -29,6 +31,35 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 TOP_K = 6
 MAX_PROFILE_FACTS = 40
+
+# Фоновые задачи авто-обучения — держим ссылки, чтобы их не собрал GC.
+_bg_tasks: set = set()
+
+
+async def _learn_from_conversation(conv_id: uuid.UUID) -> None:
+    """В фоне извлечь новые факты о пользователе из только что прошедшего чата."""
+    try:
+        await asyncio.sleep(1)  # дать запросу завершиться + чуть разгрузить rate-limit
+        async with AsyncSessionLocal() as session:
+            conv = (
+                await session.execute(
+                    select(Conversation)
+                    .where(Conversation.id == conv_id)
+                    .options(selectinload(Conversation.messages))
+                )
+            ).scalar_one_or_none()
+            if conv is not None:
+                added = await extract_facts_for_conversation(session, conv)
+                if added:
+                    log.info("auto-learn: +%d facts from %s", added, conv_id)
+    except Exception as e:  # noqa: BLE001 — обучение не должно влиять на чат
+        log.warning("auto-learn failed for %s: %s", conv_id, e)
+
+
+def _schedule_learn(conv_id: uuid.UUID) -> None:
+    task = asyncio.create_task(_learn_from_conversation(conv_id))
+    _bg_tasks.add(task)
+    task.add_done_callback(_bg_tasks.discard)
 
 SYSTEM_PROMPT = (
     "Ты — личный AI-ассистент пользователя с долгой памятью. "
@@ -204,6 +235,8 @@ async def chat(payload: ChatIn):
             conv_id = await _persist(payload.conversation_id, user_msg, answer)
         except Exception as e:  # noqa: BLE001
             log.warning("chat persist failed: %s", e)
+        if conv_id:
+            _schedule_learn(conv_id)  # авто-обучение: факты о пользователе в фоне
         yield _sse({"done": True, "conversation_id": str(conv_id) if conv_id else None})
 
     return StreamingResponse(gen(), media_type="text/event-stream")
