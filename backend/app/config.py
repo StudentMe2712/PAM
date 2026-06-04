@@ -14,13 +14,19 @@ class Settings(BaseSettings):
     OLLAMA_URL: str = "http://localhost:11434"
     EMBED_MODEL: str = "nomic-embed-text"
 
-    # Phase 4 — chat LLM (provider-agnostic). "groq" (cloud, free) | "ollama" (local).
+    # Phase 4 — chat LLM (provider-agnostic).
+    #   "groq" (cloud, free, fast) | "openrouter" (cloud, free/paid, много моделей) | "ollama" (local)
     LLM_PROVIDER: str = "groq"
     GROQ_API_KEY: str = ""
     # gpt-oss-120b — самая сильная open-модель на Groq (reasoning в отдельном
     # поле, в content не течёт), быстрая и многоязычная. Можно вернуть
     # llama-3.3-70b-versatile / meta-llama/llama-4-scout-17b-16e-instruct.
     GROQ_MODEL: str = "openai/gpt-oss-120b"
+    # OpenRouter — один ключ на десятки моделей (OpenAI-совместимо). Ключ:
+    # https://openrouter.ai/keys (бесплатно, без карты). Сильные free-модели:
+    # deepseek/deepseek-r1:free, deepseek/deepseek-chat:free, qwen/qwen3-235b-a22b:free.
+    OPENROUTER_API_KEY: str = ""
+    OPENROUTER_MODEL: str = "deepseek/deepseek-r1:free"
     OLLAMA_CHAT_MODEL: str = "llama3.2:3b"
 
     @property
