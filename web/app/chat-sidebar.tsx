@@ -35,7 +35,14 @@ export default function ChatSidebar({
   function openMenu(id: string, e: React.MouseEvent) {
     e.stopPropagation()
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    setMenu({ id, x: Math.max(8, r.right - 220), y: r.bottom + 4 })
+    const MENU_W = 220
+    const MENU_H = 150
+    // Открываем СПРАВА от кнопки (в область чата), чтобы не перекрывать список чатов.
+    const x = Math.min(r.right + 6, window.innerWidth - MENU_W - 8)
+    // У нижних чатов разворачиваем вверх, чтобы не уходило за низ экрана.
+    const y =
+      r.bottom + 4 + MENU_H > window.innerHeight ? Math.max(8, r.top - MENU_H) : r.bottom + 4
+    setMenu({ id, x, y })
   }
 
   async function togglePin(c: ConversationSummary) {
@@ -307,7 +314,7 @@ function ContextMenu({
     <div
       ref={ref}
       role="menu"
-      className="fixed z-50 w-[220px] p-1.5 origin-top-right transition-all duration-150"
+      className="fixed z-50 w-[220px] p-1.5 origin-top-left transition-all duration-150"
       style={{
         left: x,
         top: y,
