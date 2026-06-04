@@ -18,7 +18,9 @@ export default function RootLayout({
     <html lang="ru">
       <body className="bg-neutral-950 text-neutral-100 font-mono">
         <Nav />
-        <div className="max-w-5xl mx-auto px-6 py-8">{children}</div>
+        {/* Ширину/отступы задаёт каждая страница сама: контентные — через
+            max-w-5xl, чат — на всю ширину (скроллбар у правого края). */}
+        {children}
       </body>
     </html>
   )

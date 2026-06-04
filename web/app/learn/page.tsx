@@ -14,11 +14,16 @@ import {
   type ContentSource,
   type Course
 } from "../../lib/api"
+import { getCache, setCache } from "../../lib/cache"
 import RefreshButton from "../refresh-button"
 
 export default function LearnPage() {
-  const [sources, setSources] = useState<ContentSource[]>([])
-  const [loading, setLoading] = useState(true)
+  const [sources, setSources] = useState<ContentSource[]>(
+    () => getCache<ContentSource[]>("sources") ?? []
+  )
+  const [loading, setLoading] = useState(
+    () => getCache<ContentSource[]>("sources") === undefined
+  )
   const [error, setError] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
 
@@ -33,7 +38,10 @@ export default function LearnPage() {
   useEffect(() => {
     setLoading(true)
     listSources()
-      .then(setSources)
+      .then((d) => {
+        setSources(d)
+        setCache("sources", d)
+      })
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false))
   }, [tick])
@@ -108,7 +116,7 @@ export default function LearnPage() {
   }
 
   return (
-    <main>
+    <main className="max-w-5xl mx-auto px-6 py-8">
       <header className="border-b border-neutral-800 pb-6 mb-6">
         <div className="text-xs uppercase tracking-widest text-lime-400 mb-2">
           /// лектор
@@ -167,7 +175,7 @@ export default function LearnPage() {
           <h2 className="text-xs uppercase tracking-widest text-neutral-500 mb-3">
             материалы
           </h2>
-          {loading ? (
+          {loading && sources.length === 0 ? (
             <div className="text-neutral-500 text-sm py-8">// загрузка…</div>
           ) : sources.length === 0 ? (
             <div className="text-neutral-500 text-sm py-8 border border-dashed border-neutral-800 text-center font-sans">

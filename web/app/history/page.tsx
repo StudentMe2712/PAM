@@ -10,6 +10,7 @@ import {
   type SearchHit,
   type SearchMode
 } from "../../lib/api"
+import { getCache, setCache } from "../../lib/cache"
 import RefreshButton from "../refresh-button"
 
 type SourceFilter = "" | "chatgpt" | "claude" | "gemini"
@@ -24,11 +25,16 @@ export default function HistoryPage() {
   const [error, setError] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
 
-  // initial list + manual refresh (tick)
+  // initial list + manual refresh (tick) — мгновенный рендер из кэша по source
   useEffect(() => {
-    setLoading(true)
+    const cached = getCache<ConversationSummary[]>(`conv:${source}`)
+    if (cached) setConversations(cached)
+    setLoading(cached === undefined)
     listConversations({ source: source || undefined })
-      .then(setConversations)
+      .then((d) => {
+        setConversations(d)
+        setCache(`conv:${source}`, d)
+      })
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false))
   }, [source, tick])
@@ -48,7 +54,7 @@ export default function HistoryPage() {
   }, [query, source, mode])
 
   return (
-    <main>
+    <main className="max-w-5xl mx-auto px-6 py-8">
       <header className="border-b border-neutral-800 pb-6 mb-6">
         <div className="text-xs uppercase tracking-widest text-lime-400 mb-2">
           /// импорт_истории
@@ -111,7 +117,7 @@ function ConversationList({
   items: ConversationSummary[]
   loading: boolean
 }) {
-  if (loading) {
+  if (loading && items.length === 0) {
     return <div className="text-neutral-500 text-sm py-12">// загрузка…</div>
   }
   if (items.length === 0) {
