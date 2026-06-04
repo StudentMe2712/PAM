@@ -7,18 +7,18 @@ conversation so the chat itself becomes part of the memory.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import uuid
 from collections.abc import AsyncIterator
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select, update
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..db import AsyncSessionLocal, get_session
+from ..db import AsyncSessionLocal
 from ..indexing import chunk_text, embed_text
 from ..llm import stream_chat
 from ..models import Chunk, Conversation, Message, ProfileFact
@@ -57,49 +57,57 @@ def _sse(obj: dict) -> bytes:
     return f"data: {json.dumps(obj, ensure_ascii=False)}\n\n".encode("utf-8")
 
 
-async def _retrieve(session: AsyncSession, query: str, k: int = TOP_K):
-    """Vector-retrieve the most relevant chunks for the query."""
+# Каждый из трёх подготовительных запросов открывает свою сессию — чтобы их
+# можно было запускать конкурентно (одна AsyncSession не потокобезопасна для
+# параллельных запросов). Это сокращает время до первого токена.
+async def _retrieve(query: str, k: int = TOP_K):
+    """Vector-retrieve the most relevant chunks for the query (own session)."""
     try:
         qvec = await embed_text(query)
     except Exception as e:  # noqa: BLE001 — degrade to no-context
         log.warning("chat retrieve: embeddings unavailable: %s", e)
         return []
     dist = Chunk.embedding.cosine_distance(qvec)
-    return (
-        await session.execute(
-            select(Chunk.content, Conversation.title, Conversation.source)
-            .join(Message, Message.id == Chunk.message_id)
-            .join(Conversation, Conversation.id == Message.conversation_id)
-            .where(Chunk.embedding.is_not(None))
-            .order_by(dist.asc())
-            .limit(k)
-        )
-    ).all()
+    async with AsyncSessionLocal() as session:
+        return (
+            await session.execute(
+                select(Chunk.content, Conversation.title, Conversation.source)
+                .join(Message, Message.id == Chunk.message_id)
+                .join(Conversation, Conversation.id == Message.conversation_id)
+                .where(Chunk.embedding.is_not(None))
+                .order_by(dist.asc())
+                .limit(k)
+            )
+        ).all()
 
 
-async def _profile_facts(session: AsyncSession, limit: int = MAX_PROFILE_FACTS) -> str:
+async def _profile_facts(limit: int = MAX_PROFILE_FACTS) -> str:
     """Assemble the user's known profile facts (highest-confidence first)."""
-    rows = (
-        await session.execute(
-            select(ProfileFact.category, ProfileFact.content)
-            .order_by(ProfileFact.confidence.desc(), ProfileFact.created_at.desc())
-            .limit(limit)
-        )
-    ).all()
+    async with AsyncSessionLocal() as session:
+        rows = (
+            await session.execute(
+                select(ProfileFact.category, ProfileFact.content)
+                .order_by(ProfileFact.confidence.desc(), ProfileFact.created_at.desc())
+                .limit(limit)
+            )
+        ).all()
     if not rows:
         return ""
     return "\n".join(f"- [{r.category}] {r.content}" for r in rows)
 
 
-async def _recent_history(session: AsyncSession, conv_id: uuid.UUID, limit: int = 10):
-    rows = (
-        await session.execute(
-            select(Message.role, Message.content)
-            .where(Message.conversation_id == conv_id)
-            .order_by(Message.position.desc())
-            .limit(limit)
-        )
-    ).all()
+async def _recent_history(conv_id: uuid.UUID | None, limit: int = 10):
+    if conv_id is None:
+        return []
+    async with AsyncSessionLocal() as session:
+        rows = (
+            await session.execute(
+                select(Message.role, Message.content)
+                .where(Message.conversation_id == conv_id)
+                .order_by(Message.position.desc())
+                .limit(limit)
+            )
+        ).all()
     return list(reversed(rows))
 
 
@@ -147,14 +155,17 @@ async def _persist(conv_id: uuid.UUID | None, user_msg: str, answer: str) -> uui
 
 
 @router.post("")
-async def chat(payload: ChatIn, session: AsyncSession = Depends(get_session)):
+async def chat(payload: ChatIn):
     user_msg = payload.message.strip()
-    ctx_rows = await _retrieve(session, user_msg)
+    # Параллельно: ретрив (эмбеддинг+вектор-поиск), факты профиля, история чата.
+    ctx_rows, profile, history = await asyncio.gather(
+        _retrieve(user_msg),
+        _profile_facts(),
+        _recent_history(payload.conversation_id),
+    )
     ctx = "\n\n".join(
         f"[{r.source}/{r.title or 'без названия'}]\n{r.content}" for r in ctx_rows
     ) or "(нет релевантного контекста)"
-    profile = await _profile_facts(session)
-    history = await _recent_history(session, payload.conversation_id) if payload.conversation_id else []
 
     messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
     for r in history:
